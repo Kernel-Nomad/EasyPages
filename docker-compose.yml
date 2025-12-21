@@ -1,0 +1,11 @@
+services:
+  easypages:
+    container_name: easypages
+    image: ghcr.io/kernel-nomad/easypages
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    env_file:
+      - .env
+    volumes:
+      - ./sessions:/app/sessions
