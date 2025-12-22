@@ -9,3 +9,4 @@ services:
       - .env
     volumes:
       - ./sessions:/app/sessions
+      - ./backend/server.js:/app/server.js
