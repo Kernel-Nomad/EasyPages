@@ -30,17 +30,6 @@ const Footer = () => {
                  <span style={{ fontFamily: 'inherit' }}>{t('tip_me')}</span>
               </a>
               
-              <div className="h-[28px] flex items-center overflow-hidden rounded bg-gray-50">
-                  <iframe 
-                      src="https://ghbtns.com/github-btn.html?user=Kernel-Nomad&repo=EasyPages&type=star&count=true&size=large" 
-                      frameBorder="0" 
-                      scrolling="0" 
-                      width="140" 
-                      height="30" 
-                      title="GitHub Stars for Kernel-Nomad/EasyPages"
-                      className="transform translate-y-[1px]" 
-                  ></iframe>
-              </div>
           </div>
 
       </div>
