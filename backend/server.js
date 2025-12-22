@@ -77,9 +77,6 @@ app.use(helmet({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- CONFIGURACIÓN DE SESIÓN MEJORADA ---
-// Se ha establecido secure: false para permitir cookies en HTTP y HTTPS
-// independientemente del entorno (NODE_ENV), igual que en PullPilot.
 app.use(session({
   name: 'easypages_sid',
   secret: finalSessionSecret,
@@ -88,7 +85,7 @@ app.use(session({
   saveUninitialized: false,
   cookie: { 
     httpOnly: true, 
-    secure: false, // <--- CAMBIO APLICADO AQUÍ
+    secure: false,
     maxAge: 24 * 60 * 60 * 1000,
     sameSite: 'lax'
   }
@@ -155,7 +152,8 @@ app.get('/login', csrfProtection, (req, res) => {
   
   try {
       let html = fs.readFileSync(path.join(__dirname, 'login.html'), 'utf8');
-      html = html.replace('', `<input type="hidden" name="_csrf" value="${req.csrfToken()}">`);
+      const csrfField = `<input type="hidden" name="_csrf" value="${req.csrfToken()}">`;
+      html = html.replace('<form action="/login" method="POST">', `<form action="/login" method="POST">${csrfField}`);
       res.send(html);
   } catch (e) {
       res.status(500).send("Error cargando login");
