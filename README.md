@@ -106,6 +106,7 @@ For EasyPages to work, you need a Cloudflare Token with the appropriate permissi
          - .env
        volumes:
          - ./sessions:/app/sessions
+         - ./backend/server.js:/app/server.js
    ```
 
 3. **Start the container**:
@@ -204,6 +205,7 @@ services:
       - .env
     volumes:
       - ./sessions:/app/sessions
+      - ./backend/server.js:/app/server.js
 
 ```
 
