@@ -140,6 +140,8 @@ const safeUnlink = (filePath) => {
     }
 };
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const requireAuth = (req, res, next) => {
   if (!AUTH_USER || !AUTH_PASS) return res.status(500).send("Error de configuración server-side.");
   if (req.session && req.session.authenticated) return next();
@@ -210,8 +212,9 @@ app.get('/api/projects/:projectName/deployments', async (req, res) => {
     const { projectName } = req.params;
     if (!isValidProjectName(projectName)) return res.status(400).json({ error: 'Nombre de proyecto inválido' });
 
+    // Obtenemos hasta 25 por defecto, pero podríamos paginar si quisiéramos más historial visible
     const response = await axios.get(
-      `${CF_API_URL}/accounts/${CF_ACCOUNT_ID}/pages/projects/${projectName}/deployments`, 
+      `${CF_API_URL}/accounts/${CF_ACCOUNT_ID}/pages/projects/${projectName}/deployments?per_page=25&sort_by=created_on&sort_order=desc`, 
       { headers: CF_HEADERS }
     );
     res.json(response.data.result);
@@ -234,6 +237,117 @@ app.post('/api/projects/:projectName/deployments', async (req, res) => {
         res.status(500).json({ error: 'Error triggering deployment' });
     }
 });
+
+// NUEVA RUTA: Borrar lista específica de deploys
+app.delete('/api/projects/:projectName/deployments', async (req, res) => {
+    try {
+        const { projectName } = req.params;
+        const { deploymentIds } = req.body;
+
+        if (!isValidProjectName(projectName)) return res.status(400).json({ error: 'Nombre de proyecto inválido' });
+        if (!Array.isArray(deploymentIds) || deploymentIds.length === 0) {
+            return res.status(400).json({ error: 'No se enviaron IDs para borrar' });
+        }
+
+        // Obtener deploy de producción para asegurar no borrarlo
+        const projRes = await axios.get(`${CF_API_URL}/accounts/${CF_ACCOUNT_ID}/pages/projects/${projectName}`, { headers: CF_HEADERS });
+        const productionId = projRes.data.result.canonical_deployment?.id;
+
+        const results = { success: 0, failed: 0 };
+
+        for (const id of deploymentIds) {
+            if (id === productionId) {
+                console.log(`Skipping production deployment: ${id}`);
+                continue;
+            }
+            try {
+                await axios.delete(
+                    `${CF_API_URL}/accounts/${CF_ACCOUNT_ID}/pages/projects/${projectName}/deployments/${id}`,
+                    { headers: CF_HEADERS }
+                );
+                results.success++;
+                await sleep(200); // Pequeña pausa para no saturar
+            } catch (err) {
+                console.error(`Error deleting ${id}:`, err.message);
+                results.failed++;
+            }
+        }
+
+        res.json({ message: 'Proceso completado', ...results });
+
+    } catch (error) {
+        console.error("Error bulk delete:", error);
+        res.status(500).json({ error: 'Error procesando la eliminación' });
+    }
+});
+
+// NUEVA RUTA: Borrar TODO el historial (Excepto Producción)
+app.delete('/api/projects/:projectName/deployments/all', async (req, res) => {
+    try {
+        const { projectName } = req.params;
+        if (!isValidProjectName(projectName)) return res.status(400).json({ error: 'Nombre de proyecto inválido' });
+
+        // 1. Obtener ID de Producción
+        const projRes = await axios.get(`${CF_API_URL}/accounts/${CF_ACCOUNT_ID}/pages/projects/${projectName}`, { headers: CF_HEADERS });
+        const productionId = projRes.data.result.canonical_deployment?.id;
+        
+        console.log(`🗑️ Iniciando borrado total para ${projectName}. Producción (protegido): ${productionId}`);
+
+        // 2. Recopilar TODOS los IDs (Paginación)
+        let page = 1;
+        let allIds = [];
+        let keepFetching = true;
+
+        while (keepFetching) {
+            try {
+                const depRes = await axios.get(
+                    `${CF_API_URL}/accounts/${CF_ACCOUNT_ID}/pages/projects/${projectName}/deployments?per_page=25&page=${page}`,
+                    { headers: CF_HEADERS }
+                );
+                const deployments = depRes.data.result;
+                
+                if (!deployments || deployments.length === 0) {
+                    keepFetching = false;
+                } else {
+                    const ids = deployments.map(d => d.id);
+                    allIds = [...allIds, ...ids];
+                    page++;
+                    // Límite de seguridad para evitar loops infinitos si hay miles
+                    if (page > 50) keepFetching = false; 
+                }
+            } catch (e) {
+                console.error("Error fetching page " + page, e.message);
+                keepFetching = false;
+            }
+        }
+
+        // 3. Filtrar producción
+        const idsToDelete = allIds.filter(id => id !== productionId);
+        
+        // 4. Borrar en bucle
+        let deletedCount = 0;
+        for (const id of idsToDelete) {
+             try {
+                await axios.delete(
+                    `${CF_API_URL}/accounts/${CF_ACCOUNT_ID}/pages/projects/${projectName}/deployments/${id}`,
+                    { headers: CF_HEADERS }
+                );
+                deletedCount++;
+                // Cloudflare rate limit protection
+                await sleep(300); 
+            } catch (err) {
+                console.error(`Failed to delete ${id}`, err.message);
+            }
+        }
+
+        res.json({ success: true, deleted: deletedCount, total_found: allIds.length });
+
+    } catch (error) {
+        console.error("Error delete ALL:", error);
+        res.status(500).json({ error: 'Error crítico eliminando historial' });
+    }
+});
+
 
 function getMimeType(filename) {
     const ext = path.extname(filename).toLowerCase();

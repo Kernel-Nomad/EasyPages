@@ -344,7 +344,12 @@ export default function App() {
                         <Loader2 className="animate-spin text-orange-500" size={24} />
                         {t('loading_history')}
                       </div>
-                    : <DeploymentList deployments={deployments} />
+                    : <DeploymentList 
+                        deployments={deployments} 
+                        projectName={selectedProject.name} 
+                        csrfToken={csrfToken}
+                        onRefresh={() => fetchDeployments(selectedProject.name)}
+                      />
                 )}
                 {activeTab === 'domains' && (
                     <DomainsTab project={selectedProject} csrfToken={csrfToken} />

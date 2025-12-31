@@ -55,6 +55,7 @@ EasyPages is a minimalist self-hosted dashboard to manage your Cloudflare Pages 
 
 * **Project Visualization**: List all your Cloudflare Pages sites.
 * **Create Projects**: Basic option to create new projects and upload files locally (Direct Upload).
+* **Delete Deployments**: Bulk delete previous deployments or clean up the entire history to manage storage and limits.
 * **Deployments**: Trigger manual deployments directly from the interface.
 * **Domains**: View associated domains and add new custom domains.
 * **Configuration**: Update build settings and environment variables.
@@ -152,6 +153,7 @@ EasyPages es un panel de control minimalista para gestionar tus proyectos de Clo
 
 * **Visualización de Proyectos**: Lista todos tus sitios de Cloudflare Pages.
 * **Creación de nuevos proyectos**: Opción básica para crear nuevos proyectos y subir archivos localmente.
+* **Eliminar Despliegues**: Elimina despliegues antiguos seleccionados o limpia todo el historial para liberar espacio.
 * **Despliegues**: Dispara implementaciones manualmente desde la interfaz.
 * **Dominios**: Ve los dominios asociados y añadir nuevos.
 * **Configuracion**: Actualiza la configuración del build.

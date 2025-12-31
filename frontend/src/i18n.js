@@ -55,6 +55,12 @@ const resources = {
       loading_history: "Cargando historial...",
       view_deploy: "Ver este despliegue",
       
+      delete_selected: "Eliminar seleccionados ({{count}})",
+      delete_all_history: "Eliminar TODO el historial",
+      confirm_delete_selected: "¿Estás seguro de que quieres eliminar {{count}} despliegues?",
+      confirm_delete_all: "⚠️ ACCIÓN CRÍTICA\n\nEsto eliminará TODOS los despliegues anteriores excepto el que está actualmente en producción.\nEsta acción no se puede deshacer.\n\n¿Estás completamente seguro?",
+      deleting_msg: "Eliminando...",
+      
       build_config_title: "Configuración de Build",
       build_command_label: "Comando de Build",
       output_dir_label: "Directorio de Salida",
@@ -130,6 +136,12 @@ const resources = {
       no_history: "No deployment history available.",
       loading_history: "Loading history...",
       view_deploy: "View this deployment",
+      
+      delete_selected: "Delete selected ({{count}})",
+      delete_all_history: "Delete ALL history",
+      confirm_delete_selected: "Are you sure you want to delete {{count}} deployments?",
+      confirm_delete_all: "⚠️ CRITICAL ACTION\n\nThis will delete ALL previous deployments except the one currently in production.\nThis action cannot be undone.\n\nAre you completely sure?",
+      deleting_msg: "Deleting...",
       
       build_config_title: "Build Configuration",
       build_command_label: "Build Command",
