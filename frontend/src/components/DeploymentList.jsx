@@ -13,8 +13,8 @@ const DeploymentItem = ({ deployment, isSelected, onToggle, isProduction }) => {
             type="checkbox" 
             checked={isSelected}
             onChange={() => onToggle(deployment.id)}
-            disabled={isProduction}
-            className={`w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500 ${isProduction ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
+            // Hemos eliminado 'disabled={isProduction}'. Ahora todo es seleccionable.
+            className="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-50 cursor-pointer"
         />
 
         <div className={`mt-0.5 w-2.5 h-2.5 rounded-full ring-4 ring-opacity-20 ${
@@ -76,13 +76,8 @@ const DeploymentList = ({ deployments, projectName, csrfToken, onRefresh }) => {
     const { t } = useTranslation();
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [isDeleting, setIsDeleting] = useState(false);
-    
-    // Identificar ID de producción (normalmente es el alias principal o el último activo)
-    // Cloudflare suele devolver una propiedad, pero aquí asumiremos que el último 'success' que no es 'preview' 
-    // o simplemente no permitimos borrar el que coincida con la URL principal del proyecto si la tuviéramos.
-    // Como simplificación: No podemos borrar los alias activos, la API de backend lo protege,
-    // pero en frontend desactivamos checkboxes si status es 'active' para dar feedback visual.
-    
+    const [progress, setProgress] = useState({ current: 0, total: 0 });
+
     useEffect(() => {
         setSelectedIds(new Set());
     }, [deployments]);
@@ -96,10 +91,8 @@ const DeploymentList = ({ deployments, projectName, csrfToken, onRefresh }) => {
 
     const handleSelectAll = (e) => {
         if (e.target.checked) {
-            // Seleccionar todos excepto los activos (producción)
-            const ids = deployments
-                .filter(d => d.latest_stage?.status !== 'active' && d.aliases === null) // Lógica simple para evitar producción
-                .map(d => d.id);
+            // Selecciona TODOS los IDs, el backend se encargará de ignorar el activo.
+            const ids = deployments.map(d => d.id);
             setSelectedIds(new Set(ids));
         } else {
             setSelectedIds(new Set());
@@ -132,26 +125,79 @@ const DeploymentList = ({ deployments, projectName, csrfToken, onRefresh }) => {
 
     const handleDeleteAll = async () => {
         if (!confirm(t('confirm_delete_all'))) return;
+        
         setIsDeleting(true);
+        setProgress({ current: 0, total: 100 }); // Indeterminado inicial
+
         try {
-            const res = await fetch(`/api/projects/${projectName}/deployments/all`, {
-                method: 'DELETE',
-                headers: { 'CSRF-Token': csrfToken }
-            });
-            if (res.ok) {
-                onRefresh();
-            } else {
-                alert("Error crítico eliminando historial");
+            // 1. Obtener lista de candidatos (Backend escanea todo excepto activo)
+            const candRes = await fetch(`/api/projects/${projectName}/deployments/candidates`);
+            if (!candRes.ok) throw new Error("Error obteniendo candidatos");
+            
+            const data = await candRes.json();
+            const idsToDelete = data.ids || [];
+
+            if (idsToDelete.length === 0) {
+                alert("No hay nada que borrar");
+                setIsDeleting(false);
+                return;
             }
+
+            setProgress({ current: 0, total: idsToDelete.length });
+
+            // 2. Procesar borrado en lotes pequeños (Chunking) para actualizar la barra de progreso
+            const chunkSize = 5; 
+            for (let i = 0; i < idsToDelete.length; i += chunkSize) {
+                const chunk = idsToDelete.slice(i, i + chunkSize);
+                
+                await fetch(`/api/projects/${projectName}/deployments`, {
+                    method: 'DELETE',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'CSRF-Token': csrfToken
+                    },
+                    body: JSON.stringify({ deploymentIds: chunk })
+                });
+
+                setProgress(prev => ({ ...prev, current: Math.min(prev.current + chunk.length, prev.total) }));
+            }
+
+            onRefresh();
+
         } catch (e) {
             console.error(e);
+            alert("Error crítico durante el proceso de eliminación");
         } finally {
             setIsDeleting(false);
+            setProgress({ current: 0, total: 0 });
         }
     };
 
     return (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden animate-in fade-in duration-300 shadow-sm">
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden animate-in fade-in duration-300 shadow-sm relative">
+            
+            {/* Barra de Progreso Overlay */}
+            {isDeleting && progress.total > 0 && (
+                <div className="absolute inset-0 z-50 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center p-8 gap-4">
+                    <Loader2 size={40} className="animate-spin text-orange-600" />
+                    <div className="w-full max-w-md space-y-2">
+                        <div className="flex justify-between text-sm font-medium text-gray-600">
+                            <span>{t('deleting_msg')}</span>
+                            <span>{Math.round((progress.current / progress.total) * 100)}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                            <div 
+                                className="bg-orange-600 h-2.5 rounded-full transition-all duration-300 ease-out" 
+                                style={{ width: `${(progress.current / progress.total) * 100}%` }}
+                            ></div>
+                        </div>
+                        <p className="text-xs text-center text-gray-400">
+                            {progress.current} / {progress.total}
+                        </p>
+                    </div>
+                </div>
+            )}
+
             <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center flex-wrap gap-4">
                 <div className="flex items-center gap-3">
                      <h3 className="font-semibold text-gray-800">{t('history_title')}</h3>
@@ -174,23 +220,22 @@ const DeploymentList = ({ deployments, projectName, csrfToken, onRefresh }) => {
                          <button 
                             onClick={handleDeleteAll}
                             disabled={isDeleting}
-                            className="text-gray-500 hover:text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-2 transition-colors border border-transparent hover:border-red-100"
-                            title={t('delete_all_history')}
+                            className="text-red-600 hover:bg-red-50 border border-red-200 hover:border-red-300 px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-2 transition-colors"
                          >
                             <AlertTriangle size={14} />
+                            {t('delete_all_history')}
                          </button>
                     )}
                 </div>
             </div>
             
-            {/* Header de selección masiva */}
             {deployments?.length > 0 && (
                 <div className="px-4 py-2 bg-gray-50/50 border-b border-gray-100 flex items-center gap-4">
                     <input 
                         type="checkbox" 
                         onChange={handleSelectAll}
-                        checked={selectedIds.size > 0 && selectedIds.size >= deployments.length - 1}
-                        className="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                        checked={selectedIds.size > 0 && selectedIds.size >= deployments.length}
+                        className="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-50 cursor-pointer"
                     />
                     <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">{t('actions')}</span>
                 </div>
@@ -199,10 +244,7 @@ const DeploymentList = ({ deployments, projectName, csrfToken, onRefresh }) => {
             <div className="max-h-[600px] overflow-y-auto">
                 {Array.isArray(deployments) && deployments.length > 0 ? (
                     deployments.map(dep => {
-                        // Consideramos producción si tiene alias (simple heurística) o status active
-                        // El backend hace la validación real de seguridad.
                         const isProduction = dep.aliases && dep.aliases.length > 0; 
-                        
                         return (
                             <DeploymentItem 
                                 key={dep.id} 
