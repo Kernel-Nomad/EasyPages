@@ -9,13 +9,12 @@
     "dev:ui": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "find tests -name '*.test.js' -print0 | xargs -0 node --test",
-    "check": "find src tests -name '*.js' -print0 | xargs -0 -n1 node --check && node --check server.js && node --check vite.config.js && node --check tailwind.config.js && node --check postcss.config.js"
+    "test": "node scripts/run-tests.mjs",
+    "check": "node scripts/syntax-check.mjs"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
     "axios": "^1.7.9",
-    "csurf": "^1.11.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",

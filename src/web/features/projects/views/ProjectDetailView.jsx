@@ -104,20 +104,31 @@ const ProjectDetailView = ({
 
       <div className="min-h-[400px]">
         {activeTab === 'deployments' && (
-          loadingDeployments ? (
+          loadingDeployments && deployments.length === 0 ? (
             <div className="p-10 text-center text-gray-500 flex flex-col items-center gap-2">
               <Loader2 className="animate-spin text-orange-500" size={24} />
               {t('loading_history')}
             </div>
           ) : (
-            <DeploymentList
-              deployments={deployments}
-              projectName={selectedProject.name}
-              csrfToken={csrfToken}
-              onConfirm={onConfirm}
-              onNotify={onNotify}
-              onRefresh={() => onRefreshDeployments(selectedProject.name)}
-            />
+            <div className="relative">
+              {loadingDeployments && deployments.length > 0 && (
+                <div
+                  className="absolute inset-0 z-10 flex justify-center items-start pt-10 bg-white/60 backdrop-blur-[1px]"
+                  aria-busy="true"
+                  aria-label={t('loading_history')}
+                >
+                  <Loader2 className="animate-spin text-orange-500" size={24} />
+                </div>
+              )}
+              <DeploymentList
+                deployments={deployments}
+                projectName={selectedProject.name}
+                csrfToken={csrfToken}
+                onConfirm={onConfirm}
+                onNotify={onNotify}
+                onRefresh={() => onRefreshDeployments(selectedProject.name)}
+              />
+            </div>
           )
         )}
 

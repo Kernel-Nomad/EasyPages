@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AlertTriangle, Clock, ExternalLink, GitBranch, Hash, Loader2, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { easyPagesClient } from '../../../../api/client/easyPagesApi.js';
+import { isSecurityError } from '../../../app/hooks/useCsrfSession.js';
 import StatusBadge from '../../../shared/ui/StatusBadge';
 
 const DeploymentItem = ({ deployment, isSelected, onToggle, isProduction }) => {
@@ -137,8 +138,10 @@ const DeploymentList = ({
 
       await onRefresh();
     } catch (error) {
-      console.error(error);
-      onNotify('error', error.message || t('deploy_delete_error'));
+      if (!isSecurityError(error)) {
+        console.error(error);
+        onNotify('error', error.message || t('deploy_delete_error'));
+      }
     } finally {
       setIsDeleting(false);
     }
@@ -199,8 +202,10 @@ const DeploymentList = ({
 
       await onRefresh();
     } catch (error) {
-      console.error(error);
-      onNotify('error', error.message || t('deploy_delete_error'));
+      if (!isSecurityError(error)) {
+        console.error(error);
+        onNotify('error', error.message || t('deploy_delete_error'));
+      }
     } finally {
       setIsDeleting(false);
       setProgress({ current: 0, total: 0 });

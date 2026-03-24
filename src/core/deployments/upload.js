@@ -74,12 +74,18 @@ export const uploadProjectBundle = async ({
       continue;
     }
 
-    const entrySize = entry.header.size || 0;
-    if (entrySize > limits.maxZipEntryBytes) {
+    const declaredSize = entry.header.size || 0;
+    if (declaredSize > limits.maxZipEntryBytes) {
       throw createHttpError(413, 'Uno de los archivos del ZIP excede el tamaño permitido.');
     }
 
-    totalUncompressedBytes += entrySize;
+    const content = entry.getData();
+    const actualSize = content.length;
+    if (actualSize > limits.maxZipEntryBytes) {
+      throw createHttpError(413, 'Uno de los archivos del ZIP excede el tamaño permitido.');
+    }
+
+    totalUncompressedBytes += actualSize;
     if (totalUncompressedBytes > limits.maxTotalUncompressedBytes) {
       throw createHttpError(
         413,
@@ -91,13 +97,12 @@ export const uploadProjectBundle = async ({
       pendingUploadBatch.length > 0
       && (
         pendingUploadBatch.length >= limits.maxUploadBatchEntryCount
-        || pendingUploadBytes + entrySize > limits.maxUploadBatchBytes
+        || pendingUploadBytes + actualSize > limits.maxUploadBatchBytes
       )
     ) {
       await flushUploadBatch();
     }
 
-    const content = entry.getData();
     const hash = crypto.createHash('md5').update(content).digest('hex');
 
     pendingUploadBatch.push({
@@ -106,7 +111,7 @@ export const uploadProjectBundle = async ({
       metadata: { contentType: getMimeType(normalizedEntryPath) },
       base64: true,
     });
-    pendingUploadBytes += entrySize;
+    pendingUploadBytes += actualSize;
     uploadedFileCount += 1;
     manifest[normalizedEntryPath] = hash;
   }

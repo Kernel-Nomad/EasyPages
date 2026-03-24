@@ -8,7 +8,13 @@ export const appRootDir = path.resolve(currentDir, '../..');
 export const repoEnvPath = path.resolve(appRootDir, '.env');
 export const distDir = path.join(appRootDir, 'dist');
 export const loginHtmlPath = path.join(appRootDir, 'src/api/server/views/login.html');
-export const sessionSecretPath = path.join(appRootDir, '.session_secret');
+
+const easypagesDataDir = process.env.EASYPAGES_DATA_DIR?.trim();
+export const sessionSecretPath = easypagesDataDir
+  ? path.join(easypagesDataDir, '.session_secret')
+  : path.join(appRootDir, '.session_secret');
 export const uploadsDir = path.join(appRootDir, 'uploads');
 export const uploadsMulterDest = uploadsDir;
-export const sessionsStorePath = path.join(appRootDir, 'sessions');
+export const sessionsStorePath = easypagesDataDir
+  ? path.join(easypagesDataDir, 'sessions')
+  : path.join(appRootDir, 'sessions');

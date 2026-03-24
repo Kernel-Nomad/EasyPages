@@ -52,11 +52,12 @@ export const createDeploymentsRouter = ({
           res,
           createHttpError(413, 'El archivo ZIP excede el tamaño máximo permitido.'),
           'Error al procesar el archivo subido',
+          req,
         );
         return;
       }
 
-      sendErrorResponse(res, error, 'Error al procesar el archivo subido');
+      sendErrorResponse(res, error, 'Error al procesar el archivo subido', req);
     });
   };
 
@@ -70,7 +71,7 @@ export const createDeploymentsRouter = ({
       const deployments = await deploymentsService.listDeployments(toProjectInput(req));
       res.json(deployments);
     } catch (error) {
-      sendErrorResponse(res, error, 'Error fetching deployments');
+      sendErrorResponse(res, error, 'Error al cargar los despliegues', req);
     }
   });
 
@@ -84,7 +85,7 @@ export const createDeploymentsRouter = ({
       const deployment = await deploymentsService.triggerDeployment(toProjectInput(req));
       res.json(deployment);
     } catch (error) {
-      sendErrorResponse(res, error, 'Error triggering deployment');
+      sendErrorResponse(res, error, 'Error al disparar el despliegue', req);
     }
   });
 
@@ -98,8 +99,8 @@ export const createDeploymentsRouter = ({
       const candidates = await deploymentsService.getDeleteCandidates(toProjectInput(req));
       res.json(candidates);
     } catch (error) {
-      console.error('Error fetching candidates:', error);
-      sendErrorResponse(res, error, 'Error obteniendo lista de borrado');
+      console.error('Error obteniendo candidatos de borrado:', error instanceof Error ? error.message : error);
+      sendErrorResponse(res, error, 'Error obteniendo lista de borrado', req);
     }
   });
 
@@ -120,8 +121,8 @@ export const createDeploymentsRouter = ({
       );
       res.json(toDeleteDeploymentsResponse(result));
     } catch (error) {
-      console.error('Error bulk delete:', error);
-      sendErrorResponse(res, error, 'Error procesando la eliminación');
+      console.error('Error en borrado masivo de despliegues:', error instanceof Error ? error.message : error);
+      sendErrorResponse(res, error, 'Error procesando la eliminación', req);
     }
   });
 
@@ -131,7 +132,7 @@ export const createDeploymentsRouter = ({
     if (req.file) {
       const normalizedUploadPath = path.resolve(req.file.path);
       if (!isPathInsideDirectory(normalizedUploadPath, uploadsDir)) {
-        console.error(`🚨 ALERTA DE SEGURIDAD: Intento de Path Traversal en upload: ${req.file.path}`);
+        console.error('ALERTA DE SEGURIDAD: intento de path traversal en upload:', req.file.path);
         cleanupUploadFile(req.file, uploadsDir);
         return res.status(403).json({ error: 'Ruta de archivo inválida.' });
       }
@@ -148,8 +149,6 @@ export const createDeploymentsRouter = ({
     }
 
     try {
-      console.log(`🚀 Iniciando despliegue para ${projectName}...`);
-
       const result = await deploymentsService.uploadProjectBundle(
         toUploadProjectBundleInput(req),
       );
@@ -157,9 +156,9 @@ export const createDeploymentsRouter = ({
       cleanupUploadFile(req.file, uploadsDir);
       res.json(result);
     } catch (error) {
-      console.error('❌ Error en despliegue:', error.response?.data || error.message);
+      console.error('Error en despliegue por upload:', error instanceof Error ? error.message : error);
       cleanupUploadFile(req.file, uploadsDir);
-      sendErrorResponse(res, error, 'Error al procesar el despliegue en Cloudflare');
+      sendErrorResponse(res, error, 'Error al procesar el despliegue en Cloudflare', req);
     }
   });
 

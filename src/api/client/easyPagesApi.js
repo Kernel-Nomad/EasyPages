@@ -16,6 +16,28 @@ const apiHooks = {
 const encodePathSegment = (value) => encodeURIComponent(value);
 const projectApiPath = (projectName) => `/api/projects/${encodePathSegment(projectName)}`;
 
+// Centraliza cabeceras CSRF / JSON para las peticiones del dashboard (no exportado).
+const easyPagesFetch = (url, options = {}) => {
+  const { method = 'GET', csrfToken, json, body, signal } = options;
+  const headers = {};
+  if (csrfToken !== undefined && csrfToken !== null) {
+    headers['CSRF-Token'] = csrfToken;
+  }
+  if (json !== undefined) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const init = { method, headers };
+  if (signal !== undefined) {
+    init.signal = signal;
+  }
+  if (json !== undefined) {
+    init.body = JSON.stringify(json);
+  } else if (body !== undefined) {
+    init.body = body;
+  }
+  return fetch(url, init);
+};
+
 export const configureEasyPagesApi = ({ onForbidden, onUnauthorized } = {}) => {
   apiHooks.onForbidden = onForbidden || null;
   apiHooks.onUnauthorized = onUnauthorized || null;
@@ -29,85 +51,57 @@ export const resetEasyPagesApi = () => {
 export const fetchCsrfToken = () => fetch('/api/csrf-token');
 
 export const logout = (csrfToken) =>
-  fetch('/logout', {
-    method: 'POST',
-    headers: { 'CSRF-Token': csrfToken },
-  });
+  easyPagesFetch('/logout', { method: 'POST', csrfToken });
 
 export const fetchProjects = () => fetch('/api/projects');
 
 export const createProject = ({ csrfToken, name }) =>
-  fetch('/api/projects', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'CSRF-Token': csrfToken,
-    },
-    body: JSON.stringify({ name }),
-  });
+  easyPagesFetch('/api/projects', { method: 'POST', csrfToken, json: { name } });
 
 export const fetchDeployments = (projectName, { signal } = {}) =>
-  fetch(`${projectApiPath(projectName)}/deployments`, { signal });
+  easyPagesFetch(`${projectApiPath(projectName)}/deployments`, { signal });
 
 export const triggerDeployment = ({ projectName, csrfToken }) =>
-  fetch(`${projectApiPath(projectName)}/deployments`, {
-    method: 'POST',
-    headers: {
-      'CSRF-Token': csrfToken,
-    },
-  });
+  easyPagesFetch(`${projectApiPath(projectName)}/deployments`, { method: 'POST', csrfToken });
 
 export const fetchDeploymentDeleteCandidates = (projectName) =>
   fetch(`${projectApiPath(projectName)}/deployments/candidates`);
 
 export const deleteDeployments = ({ projectName, csrfToken, deploymentIds }) =>
-  fetch(`${projectApiPath(projectName)}/deployments`, {
+  easyPagesFetch(`${projectApiPath(projectName)}/deployments`, {
     method: 'DELETE',
-    headers: {
-      'Content-Type': 'application/json',
-      'CSRF-Token': csrfToken,
-    },
-    body: JSON.stringify({ deploymentIds }),
+    csrfToken,
+    json: { deploymentIds },
   });
 
 export const fetchDomains = (projectName) => fetch(`${projectApiPath(projectName)}/domains`);
 
 export const addDomain = ({ projectName, csrfToken, name }) =>
-  fetch(`${projectApiPath(projectName)}/domains`, {
+  easyPagesFetch(`${projectApiPath(projectName)}/domains`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'CSRF-Token': csrfToken,
-    },
-    body: JSON.stringify({ name }),
+    csrfToken,
+    json: { name },
   });
 
 export const deleteDomain = ({ projectName, csrfToken, domainName }) =>
-  fetch(`${projectApiPath(projectName)}/domains/${encodePathSegment(domainName)}`, {
+  easyPagesFetch(`${projectApiPath(projectName)}/domains/${encodePathSegment(domainName)}`, {
     method: 'DELETE',
-    headers: {
-      'CSRF-Token': csrfToken,
-    },
+    csrfToken,
   });
 
 export const fetchProjectSettings = (projectName) => fetch(`${projectApiPath(projectName)}/env`);
 
 export const updateProjectBuildConfig = ({ projectName, csrfToken, buildConfig }) =>
-  fetch(projectApiPath(projectName), {
+  easyPagesFetch(projectApiPath(projectName), {
     method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      'CSRF-Token': csrfToken,
-    },
-    body: JSON.stringify({ build_config: buildConfig }),
+    csrfToken,
+    json: { build_config: buildConfig },
   });
 
 export const uploadProjectFiles = ({ projectName, csrfToken, formData }) =>
-  fetch(`${projectApiPath(projectName)}/upload`, {
+  easyPagesFetch(`${projectApiPath(projectName)}/upload`, {
     method: 'POST',
-    headers: {
-      'CSRF-Token': csrfToken,
-    },
+    csrfToken,
     body: formData,
   });
 
@@ -193,7 +187,7 @@ export const easyPagesClient = {
       name,
       projectName,
     }), {
-      fallbackMessage: 'Error adding domain',
+      fallbackMessage: 'Error al añadir el dominio.',
       retryOnForbidden: true,
     }),
   createProject: ({ csrfToken, name }) =>
@@ -201,7 +195,7 @@ export const easyPagesClient = {
       csrfToken: nextCsrfToken || csrfToken,
       name,
     }), {
-      fallbackMessage: 'Error creating project',
+      fallbackMessage: 'Error al crear el proyecto.',
       retryOnForbidden: true,
     }),
   deleteDeployments: ({ csrfToken, deploymentIds, projectName }) =>
@@ -210,7 +204,7 @@ export const easyPagesClient = {
       deploymentIds,
       projectName,
     }), {
-      fallbackMessage: 'Error processing deployment deletion',
+      fallbackMessage: 'Error al eliminar despliegues.',
       retryOnForbidden: true,
     }),
   deleteDomain: ({ csrfToken, domainName, projectName }) =>
@@ -219,36 +213,36 @@ export const easyPagesClient = {
       domainName,
       projectName,
     }), {
-      fallbackMessage: 'Error deleting domain',
+      fallbackMessage: 'Error al eliminar el dominio.',
       retryOnForbidden: true,
     }),
   fetchCsrfToken: () =>
     requestApi(() => fetchCsrfToken(), {
-      fallbackMessage: 'Error obtaining CSRF token',
+      fallbackMessage: 'Error al obtener el token CSRF.',
     }),
   fetchDeploymentDeleteCandidates: (projectName) =>
     requestApi(() => fetchDeploymentDeleteCandidates(projectName), {
-      fallbackMessage: 'Error fetching deployment delete candidates',
+      fallbackMessage: 'Error al obtener candidatos a borrar de despliegues.',
     }),
   fetchDeployments: (projectName, { signal } = {}) =>
     requestApi(() => fetchDeployments(projectName, { signal }), {
-      fallbackMessage: 'Error fetching deployments',
+      fallbackMessage: 'Error al cargar los despliegues.',
     }),
   fetchDomains: (projectName) =>
     requestApi(() => fetchDomains(projectName), {
-      fallbackMessage: 'Error domains',
+      fallbackMessage: 'Error al cargar los dominios.',
     }),
   fetchProjectSettings: (projectName) =>
     requestApi(() => fetchProjectSettings(projectName), {
-      fallbackMessage: 'Error settings',
+      fallbackMessage: 'Error al cargar la configuración del proyecto.',
     }),
   fetchProjects: () =>
     requestApi(() => fetchProjects(), {
-      fallbackMessage: 'Error loading projects',
+      fallbackMessage: 'Error al cargar los proyectos.',
     }),
   logout: (csrfToken) =>
     requestApi((nextCsrfToken) => logout(nextCsrfToken || csrfToken), {
-      fallbackMessage: 'Error logging out',
+      fallbackMessage: 'Error al cerrar sesión.',
       parse: 'raw',
       retryOnForbidden: true,
     }),
@@ -257,7 +251,7 @@ export const easyPagesClient = {
       csrfToken: nextCsrfToken || csrfToken,
       projectName,
     }), {
-      fallbackMessage: 'Error triggering deployment',
+      fallbackMessage: 'Error al disparar el despliegue.',
       retryOnForbidden: true,
     }),
   updateProjectBuildConfig: ({ buildConfig, csrfToken, projectName }) =>
@@ -266,7 +260,7 @@ export const easyPagesClient = {
       csrfToken: nextCsrfToken || csrfToken,
       projectName,
     }), {
-      fallbackMessage: 'Error updating build configuration',
+      fallbackMessage: 'Error al actualizar la configuración de build.',
       retryOnForbidden: true,
     }),
   uploadProjectFiles: ({ csrfToken, formData, projectName }) =>
@@ -275,7 +269,7 @@ export const easyPagesClient = {
       formData,
       projectName,
     }), {
-      fallbackMessage: 'Error uploading files',
+      fallbackMessage: 'Error al subir los archivos.',
       retryOnForbidden: true,
     }),
 };

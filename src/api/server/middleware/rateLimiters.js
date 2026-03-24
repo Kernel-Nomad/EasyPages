@@ -3,9 +3,11 @@ import rateLimit from 'express-rate-limit';
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
-  message: { error: 'Demasiados intentos de inicio de sesión. Intente de nuevo en 15 minutos.' },
   standardHeaders: true,
   legacyHeaders: false,
+  handler: (req, res) => {
+    res.redirect(302, '/login?error=rate');
+  },
 });
 
 export const uploadLimiter = rateLimit({

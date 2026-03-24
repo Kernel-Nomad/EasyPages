@@ -16,7 +16,7 @@ export const createDomainsRouter = ({ cloudflare }) => {
       const response = await cloudflare.get(`/pages/projects/${projectName}/domains`);
       res.json(response.data.result);
     } catch (error) {
-      sendErrorResponse(res, error, 'Error domains');
+      sendErrorResponse(res, error, 'Error al cargar los dominios', req);
     }
   });
 
@@ -36,7 +36,7 @@ export const createDomainsRouter = ({ cloudflare }) => {
       const response = await cloudflare.post(`/pages/projects/${projectName}/domains`, { name });
       res.json(response.data.result);
     } catch (error) {
-      sendErrorResponse(res, error, 'Error adding domain');
+      sendErrorResponse(res, error, 'Error al añadir el dominio', req);
     }
   });
 
@@ -50,7 +50,7 @@ export const createDomainsRouter = ({ cloudflare }) => {
       await cloudflare.delete(`/pages/projects/${projectName}/domains/${domainName}`);
       res.json({ success: true });
     } catch (error) {
-      sendErrorResponse(res, error, 'Error deleting domain');
+      sendErrorResponse(res, error, 'Error al eliminar el dominio', req);
     }
   });
 

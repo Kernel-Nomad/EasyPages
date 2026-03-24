@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Loader2, Terminal } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { easyPagesClient } from '../../../../api/client/easyPagesApi.js';
+import { isSecurityError } from '../../../app/hooks/useCsrfSession.js';
 
 const SettingsTab = ({ project, csrfToken, onNotify }) => {
   const { t } = useTranslation();
@@ -19,8 +20,10 @@ const SettingsTab = ({ project, csrfToken, onNotify }) => {
         output_dir: data.build_config?.output_dir || '',
       });
     } catch (error) {
-      console.error(error);
-      onNotify('error', error.message || t('config_load_error'));
+      if (!isSecurityError(error)) {
+        console.error(error);
+        onNotify('error', error.message || t('config_load_error'));
+      }
     } finally {
       setLoading(false);
     }
@@ -41,7 +44,9 @@ const SettingsTab = ({ project, csrfToken, onNotify }) => {
       });
       onNotify('success', t('config_saved'));
     } catch (error) {
-      onNotify('error', error.message || t('config_save_error'));
+      if (!isSecurityError(error)) {
+        onNotify('error', error.message || t('config_save_error'));
+      }
     } finally {
       setSavingBuild(false);
     }

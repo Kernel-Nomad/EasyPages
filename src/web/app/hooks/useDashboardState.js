@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { easyPagesClient } from '../../../api/client/easyPagesApi.js';
 
+/** Delay before re-fetching deployments so Cloudflare can register the new deployment. */
+const DEPLOYMENTS_LIST_REFRESH_DELAY_MS = 2000;
+
 export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) => {
   const [view, setView] = useState('list');
   const [selectedProject, setSelectedProject] = useState(null);
@@ -103,7 +106,7 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) =
       clearScheduledDeploymentsRefresh();
       deploymentsRefreshTimeoutRef.current = setTimeout(() => {
         loadDeployments(projectName);
-      }, 2000);
+      }, DEPLOYMENTS_LIST_REFRESH_DELAY_MS);
     } catch (error) {
       if (!isSecurityError(error)) {
         onNotify('error', error.message || t('deploy_error'));

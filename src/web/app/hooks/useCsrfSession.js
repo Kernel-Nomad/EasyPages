@@ -12,9 +12,22 @@ const redirectToLogin = () => {
 export const isSecurityError = (error) =>
   error?.code === 'AUTH_REQUIRED' || error?.code === 'SECURITY_ERROR';
 
+const parseCsrfPayload = async (response) => {
+  const data = await response.json();
+  return typeof data?.csrfToken === 'string' ? data.csrfToken : '';
+};
+
 export const useCsrfSession = () => {
   const [csrfToken, setCsrfToken] = useState('');
 
+  const commitCsrfToken = (token) => {
+    const value = typeof token === 'string' ? token : '';
+    setCsrfToken(value);
+    return value;
+  };
+
+  // onForbidden must use raw fetch for GET /api/csrf-token: routing that response
+  // through easyPagesClient/requestApi would call onForbidden again on 403 and recurse.
   const refreshCsrfToken = async () => {
     const response = await requestCsrfToken();
 
@@ -27,15 +40,13 @@ export const useCsrfSession = () => {
       return '';
     }
 
-    const data = await response.json();
-    setCsrfToken(data.csrfToken);
-    return data.csrfToken;
+    const token = await parseCsrfPayload(response);
+    return commitCsrfToken(token);
   };
 
   const loadCsrfToken = async () => {
     const data = await easyPagesClient.fetchCsrfToken();
-    setCsrfToken(data.csrfToken);
-    return data.csrfToken;
+    return commitCsrfToken(data?.csrfToken);
   };
 
   useEffect(() => {

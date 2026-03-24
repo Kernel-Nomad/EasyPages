@@ -1,5 +1,20 @@
+import crypto from 'crypto';
 import express from 'express';
 import fs from 'fs';
+
+const digestUtf8Equal = (a, b) => {
+  const da = crypto.createHash('sha256').update(String(a), 'utf8').digest();
+  const db = crypto.createHash('sha256').update(String(b), 'utf8').digest();
+  return crypto.timingSafeEqual(da, db);
+};
+
+const escapeHtmlAttr = (value) =>
+  String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;');
+
+const CSRF_PLACEHOLDER = '<!--EASYPAGES_CSRF_INPUT-->';
 
 export const createAuthRouter = ({
   csrfProtection,
@@ -18,10 +33,18 @@ export const createAuthRouter = ({
 
     try {
       let html = fs.readFileSync(loginHtmlPath, 'utf8');
-      const csrfField = `<input type="hidden" name="_csrf" value="${req.csrfToken()}">`;
-      html = html.replace('<form action="/login" method="POST">', `<form action="/login" method="POST">${csrfField}`);
+      if (!html.includes(CSRF_PLACEHOLDER)) {
+        throw new Error('Falta el marcador CSRF en login.html');
+      }
+      const token = escapeHtmlAttr(req.csrfToken());
+      const csrfField = `<input type="hidden" name="_csrf" value="${token}">`;
+      html = html.replace(CSRF_PLACEHOLDER, csrfField);
       res.send(html);
-    } catch {
+    } catch (error) {
+      console.error(
+        '[EasyPages] Error sirviendo /login:',
+        error instanceof Error ? error.message : error,
+      );
       res.status(500).send('Error cargando login');
     }
   });
@@ -29,7 +52,7 @@ export const createAuthRouter = ({
   router.post('/login', loginLimiter, csrfProtection, (req, res) => {
     const { username, password } = req.body;
 
-    if (username === authUser && password === authPass) {
+    if (digestUtf8Equal(username, authUser) && digestUtf8Equal(password, authPass)) {
       return req.session.regenerate((regenerateError) => {
         if (regenerateError) {
           res.status(500).send('Error iniciando sesión');

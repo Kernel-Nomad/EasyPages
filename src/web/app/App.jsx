@@ -52,8 +52,7 @@ export default function App() {
 
   const initializeApp = async () => {
     try {
-      await loadCsrfToken();
-      await loadProjects();
+      await Promise.all([loadCsrfToken(), loadProjects()]);
     } catch (error) {
       if (!isSecurityError(error)) {
         console.error('Error inicializando la aplicación', error);

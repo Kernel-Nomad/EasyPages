@@ -1,11 +1,37 @@
+# EasyPages — typical install: place this file next to a `.env` created from `.env.example`
+# (download both from the raw URLs in README if you did not clone the repo).
+#
+# If `.env` is missing, `docker compose` fails before the container starts (env_file must exist).
+# Fix: cp .env.example .env and edit — see README "Quick install with Docker".
+#
+# Required in `.env` at minimum: CF_API_TOKEN, CF_ACCOUNT_ID, AUTH_USER, AUTH_PASS.
+# The `./easypages-data` volume persists sessions, uploads workspace, and `.session_secret`
+# under EASYPAGES_DATA_DIR (/data), so SESSION_SECRET is usually optional.
+#
+# Maintainers: bump `image:` to match the GitHub Release / GHCR tag you publish (see CONTRIBUTING.md).
 services:
   easypages:
     container_name: easypages
-    image: ghcr.io/kernel-nomad/easypages
+    image: ghcr.io/kernel-nomad/easypages:1.1.2
     restart: unless-stopped
     ports:
       - "8002:8002"
+    environment:
+      EASYPAGES_DATA_DIR: /data
     env_file:
       - .env
     volumes:
-      - ./sessions:/app/sessions
+      - ./easypages-data:/data
+    # Ready when the login page responds (same check documented in README).
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8002/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

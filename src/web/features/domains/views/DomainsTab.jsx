@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ExternalLink, Globe, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { easyPagesClient } from '../../../../api/client/easyPagesApi.js';
+import { isSecurityError } from '../../../app/hooks/useCsrfSession.js';
 
 const DomainsTab = ({ project, csrfToken, onConfirm, onNotify }) => {
   const { t } = useTranslation();
@@ -11,19 +12,22 @@ const DomainsTab = ({ project, csrfToken, onConfirm, onNotify }) => {
   const [adding, setAdding] = useState(false);
 
   const loadDomains = async () => {
+    setLoading(true);
+
     try {
       const data = await easyPagesClient.fetchDomains(project.name);
       setDomains(data);
     } catch (error) {
-      console.error(error);
-      onNotify('error', error.message || t('domains_load_error'));
+      if (!isSecurityError(error)) {
+        console.error(error);
+        onNotify('error', error.message || t('domains_load_error'));
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    setLoading(true);
     loadDomains();
   }, [project.name]);
 
@@ -46,7 +50,9 @@ const DomainsTab = ({ project, csrfToken, onConfirm, onNotify }) => {
       await loadDomains();
       onNotify('success', t('domain_add_success'));
     } catch (error) {
-      onNotify('error', error.message || t('error_add_domain'));
+      if (!isSecurityError(error)) {
+        onNotify('error', error.message || t('error_add_domain'));
+      }
     } finally {
       setAdding(false);
     }
@@ -73,7 +79,9 @@ const DomainsTab = ({ project, csrfToken, onConfirm, onNotify }) => {
       setDomains((currentDomains) => currentDomains.filter((domain) => domain.name !== domainName));
       onNotify('success', t('domain_delete_success'));
     } catch (error) {
-      onNotify('error', error.message || t('error_delete_domain'));
+      if (!isSecurityError(error)) {
+        onNotify('error', error.message || t('error_delete_domain'));
+      }
     }
   };
 

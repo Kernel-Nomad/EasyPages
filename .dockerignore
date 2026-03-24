@@ -9,7 +9,6 @@ uploads
 sessions
 .session_secret
 tests
-docs
 scripts
 .DS_Store
 CHANGELOG.md

@@ -50,6 +50,8 @@
 
 EasyPages is a self-hosted dashboard for managing Cloudflare Pages projects from your own server.
 
+> **Typical install (no git clone):** use the published **GHCR image** with `docker-compose.yml` and `.env` downloaded from this repo's raw URLs — see [Quick install with Docker](#quick-install-with-docker).
+
 ## What it does
 
 - Lists Cloudflare Pages projects.
@@ -75,42 +77,28 @@ Token creation page: [Cloudflare Dashboard > My Profile > API Tokens](https://da
 
 ## Quick install with Docker
 
-1. Create a `.env` file in the project root using these variables:
+**Who this is for:** Most people run EasyPages from the **published container image** plus two local files: `docker-compose.yml` and `.env`. You do **not** need to clone the repository. The source tree is for development, customization, or security review.
 
-   ```env
-   CF_API_TOKEN=xxxxx
-   CF_ACCOUNT_ID=xxxxx
+**Required in `.env`:** `CF_API_TOKEN`, `CF_ACCOUNT_ID`, `AUTH_USER`, `AUTH_PASS`.
 
-   AUTH_USER=admin
-   AUTH_PASS=password123
+Run in a new folder (default branch `main`; pin a [release tag](https://github.com/Kernel-Nomad/EasyPages/releases) in the URLs if you prefer):
 
-   SESSION_SECRET=2gcs1br2kf8dasjk8
-   ```
+```bash
+mkdir easypages && cd easypages
+curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/Kernel-Nomad/EasyPages/main/docker-compose.yml
+curl -fsSL -o .env.example https://raw.githubusercontent.com/Kernel-Nomad/EasyPages/main/.env.example
+cp .env.example .env
+# Edit .env: set CF_API_TOKEN, CF_ACCOUNT_ID, AUTH_USER, AUTH_PASS
+docker compose up -d --pull always
+```
 
-2. Use the provided `docker-compose.yml`:
+Open [http://localhost:8002](http://localhost:8002).
 
-   ```yaml
-   services:
-     easypages:
-       container_name: easypages
-       image: ghcr.io/kernel-nomad/easypages
-       restart: unless-stopped
-       ports:
-         - "8002:8002"
-       env_file:
-         - .env
-       volumes:
-         - ./sessions:/app/sessions
-   ```
+The Compose file pins the image to a release tag on GHCR, sets `EASYPAGES_DATA_DIR` for one data volume, and includes a healthcheck (healthy when `/login` responds). Optional variables are listed in [`.env.example`](.env.example). With this setup, the data volume persists sessions and `.session_secret`, so you usually omit `SESSION_SECRET`. For other production setups without that directory, set `SESSION_SECRET` (see Notes below). Edge cases and older image tags: [CONTRIBUTING.md](CONTRIBUTING.md#releases-docker-image-and-compose).
 
-3. Start the container:
+**Alternative: install from a git clone**
 
-   ```bash
-   docker compose pull
-   docker compose up -d
-   ```
-
-4. Open [http://localhost:8002](http://localhost:8002).
+If you already have the repo, use the same steps with the bundled [`docker-compose.yml`](docker-compose.yml) and [`.env.example`](.env.example) in the repository root instead of downloading the raw files.
 
 ## Local development
 
@@ -146,29 +134,12 @@ npm run check
 Notes:
 
 - The server serves files from `dist/`, so `npm run build` is required before `npm run start`.
-- If `SESSION_SECRET` is omitted, the server can generate and persist `.session_secret` locally.
+- With `NODE_ENV=production`, set `SESSION_SECRET` unless you use `EASYPAGES_DATA_DIR` with a persistent volume (as in the bundled Docker Compose): then the app can create or reuse `.session_secret` under that directory. The GHCR image sets `NODE_ENV=production`. In development, if `SESSION_SECRET` is omitted, the server may generate and persist `.session_secret` in the repo root (warnings are logged if the file cannot be read or written).
+- Session cookies use the `Secure` flag when `NODE_ENV=production` (HTTPS behind a reverse proxy with `trust proxy` enabled). Override with `SESSION_COOKIE_SECURE=true|false` if you must serve over plain HTTP in a production-marked environment.
+- Sessions are stored on disk (`session-file-store` under `./sessions` by default, or under `<EASYPAGES_DATA_DIR>/sessions` when that variable is set). That fits a **single Node process**. If you run **multiple replicas** or processes behind a load balancer without sticky sessions, use one instance per deployment or switch to a shared session store (Redis, database, etc.); otherwise users will lose sessions unpredictably.
+- Static UI files under `dist/` (`index.html`, `/assets/*`, etc.) are only served to **authenticated** browsers; login still loads `/login.css` and `/login-error.js` without a session.
 
-## Repository layout
-
-- `server.js`: public compatibility shim kept for external tooling and root-level entrypoint compatibility.
-- `src/index.js`: canonical server entrypoint used by the package scripts.
-- `src/api/`: HTTP server interface, route adapters, middleware and browser API client.
-- `src/core/`: domain logic, Cloudflare integration, error factories and runtime bootstrapping.
-- `src/core/cloudflare/`: shared Cloudflare API client.
-- `src/core/projects/`: project validation, mapping and use cases.
-- `src/core/deployments/`: deployment pagination, batch deletion and ZIP upload orchestration.
-- `src/config/`: environment loading, runtime paths and upload limits without HTTP-layer concerns.
-- `src/utils/`: shared pure helpers for files, ZIP handling and generic validation.
-- `src/web/main.jsx`: React/Vite bootstrap.
-- `src/web/app/`: shell, top-level hooks and layout orchestration.
-- `src/web/features/`: feature views and project-specific components.
-- `src/web/shared/`: shared i18n, layout, styles and generic UI.
-- `public/`: static assets copied into the UI build.
-- `tests/unit/`: unit suites split by layer (`api/`, `core/`, `utils/`).
-- `tests/integration/`: integration suites for HTTP routers under `api/server/routes/`.
-- `docs/`: project documentation such as structure notes.
-- `scripts/`: repository scripts and placeholders for future automation.
-- `.github/workflows/ghcr-publish.yml`: publishes the root Docker image to GHCR on release publication.
+For a full directory map of this repository (contributors), see [CONTRIBUTING.md — Repository layout](CONTRIBUTING.md#repository-layout).
 
 ---
 
@@ -177,6 +148,8 @@ Notes:
 # EasyPages
 
 EasyPages es un panel self-hosted para gestionar proyectos de Cloudflare Pages desde tu propio servidor.
+
+> **Instalación habitual (sin clonar):** usa la imagen publicada en **GHCR** con `docker-compose.yml` y `.env` descargados desde las URLs raw de este repo — véase [Instalación rápida con Docker](#docker-install-es).
 
 ## Qué hace
 
@@ -201,44 +174,32 @@ Crea un token personalizado con:
 
 Página de creación: [Cloudflare Dashboard > Mi Perfil > API Tokens](https://dash.cloudflare.com/profile/api-tokens)
 
+<a id="docker-install-es"></a>
+
 ## Instalación rápida con Docker
 
-1. Crea un archivo `.env` en la raíz con estas variables:
+**Para quién es:** La forma habitual de usar EasyPages es la **imagen publicada en el registro** más dos archivos en tu máquina: `docker-compose.yml` y `.env`. **No hace falta clonar el repositorio.** El código fuente sirve para desarrollo, personalización o auditoría.
 
-   ```env
-   CF_API_TOKEN=xxxxx
-   CF_ACCOUNT_ID=xxxxx
+**Obligatorio en `.env`:** `CF_API_TOKEN`, `CF_ACCOUNT_ID`, `AUTH_USER`, `AUTH_PASS`.
 
-   AUTH_USER=admin
-   AUTH_PASS=password123
+Ejecuta en una carpeta nueva (rama por defecto `main`; puedes fijar un [tag de release](https://github.com/Kernel-Nomad/EasyPages/releases) en las URLs si lo prefieres):
 
-   SESSION_SECRET=2gcs1br2kf8dasjk8
-   ```
+```bash
+mkdir easypages && cd easypages
+curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/Kernel-Nomad/EasyPages/main/docker-compose.yml
+curl -fsSL -o .env.example https://raw.githubusercontent.com/Kernel-Nomad/EasyPages/main/.env.example
+cp .env.example .env
+# Edita .env: CF_API_TOKEN, CF_ACCOUNT_ID, AUTH_USER, AUTH_PASS
+docker compose up -d --pull always
+```
 
-2. Usa el `docker-compose.yml` incluido:
+Abre [http://localhost:8002](http://localhost:8002).
 
-   ```yaml
-   services:
-     easypages:
-       container_name: easypages
-       image: ghcr.io/kernel-nomad/easypages
-       restart: unless-stopped
-       ports:
-         - "8002:8002"
-       env_file:
-         - .env
-       volumes:
-         - ./sessions:/app/sessions
-   ```
+El `docker-compose.yml` fija la imagen a un tag en GHCR, define `EASYPAGES_DATA_DIR` y un volumen de datos, e incluye un healthcheck (listo cuando responde `/login`). Variables opcionales: [`.env.example`](.env.example). Con este volumen persisten sesiones y `.session_secret`, así que normalmente puedes omitir `SESSION_SECRET`. Sin ese directorio de datos en producción, define `SESSION_SECRET` (véase Notas). Casos límite e imágenes antiguas: [CONTRIBUTING.md](CONTRIBUTING.md#releases-docker-image-and-compose).
 
-3. Inicia el contenedor:
+**Alternativa: desde un clon del repositorio**
 
-   ```bash
-   docker compose pull
-   docker compose up -d
-   ```
-
-4. Abre [http://localhost:8002](http://localhost:8002).
+Si ya tienes el repo, usa los mismos pasos con el [`docker-compose.yml`](docker-compose.yml) y [`.env.example`](.env.example) de la raíz del proyecto en lugar de descargar los archivos en bruto.
 
 ## Desarrollo local
 
@@ -274,26 +235,9 @@ npm run check
 Notas:
 
 - El servidor sirve archivos desde `dist/`, así que `npm run build` es necesario antes de `npm run start`.
-- Si omites `SESSION_SECRET`, el servidor puede generar y persistir `.session_secret` localmente.
+- Con `NODE_ENV=production`, define `SESSION_SECRET` salvo que uses `EASYPAGES_DATA_DIR` con un volumen persistente (como en el Docker Compose del repo): entonces la app puede crear o reutilizar `.session_secret` en ese directorio. La imagen en GHCR define `NODE_ENV=production`. En desarrollo, si omites `SESSION_SECRET`, el servidor puede generar y persistir `.session_secret` en la raíz del repo (se registran avisos si no se puede leer o escribir el archivo).
+- La cookie de sesión usa el flag `Secure` cuando `NODE_ENV=production` (HTTPS detrás de proxy con `trust proxy`). Puedes forzar el comportamiento con `SESSION_COOKIE_SECURE=true|false` si necesitas HTTP plano en un entorno marcado como production.
+- Las sesiones se guardan en disco (`session-file-store` en `./sessions` por defecto, o en `<EASYPAGES_DATA_DIR>/sessions` si está definida la variable). Está pensado para **un solo proceso Node**. Si ejecutas **varias réplicas** o procesos detrás de un balanceador sin sticky sessions, usa una instancia por despliegue o un almacén de sesión compartido (Redis, base de datos, etc.); si no, los usuarios perderán la sesión de forma impredecible.
+- Los estáticos de la UI en `dist/` (`index.html`, `/assets/*`, etc.) solo se sirven a navegadores **autenticados**; la pantalla de login sigue pudiendo cargar `/login.css` y `/login-error.js` sin sesión.
 
-## Estructura del repositorio
-
-- `server.js`: shim público de compatibilidad para tooling externo y compatibilidad con entrypoints en la raíz.
-- `src/index.js`: entrypoint canónico del servidor usado por los scripts del paquete.
-- `src/api/`: interfaz HTTP del servidor, adaptadores de rutas, middleware y cliente API del navegador.
-- `src/core/`: lógica de dominio, integración con Cloudflare, factorías de error y arranque runtime.
-- `src/core/cloudflare/`: cliente compartido de la API de Cloudflare.
-- `src/core/projects/`: validación, mapeo y casos de uso de proyectos.
-- `src/core/deployments/`: paginación de despliegues, borrado por lotes y orquestación de uploads ZIP.
-- `src/config/`: carga de entorno, rutas de runtime y límites de upload sin dependencias de la capa HTTP.
-- `src/utils/`: helpers puros compartidos para archivos, ZIP y validaciones genéricas.
-- `src/web/main.jsx`: bootstrap de React/Vite.
-- `src/web/app/`: shell, hooks de alto nivel y orquestación de layout.
-- `src/web/features/`: views de feature y componentes específicos de proyectos.
-- `src/web/shared/`: i18n, layout, estilos y UI genérica reutilizable.
-- `public/`: assets estáticos copiados al build de la UI.
-- `tests/unit/`: suites unitarias separadas por capa (`api/`, `core/`, `utils/`).
-- `tests/integration/`: suites de integración de routers HTTP bajo `api/server/routes/`.
-- `docs/`: documentación del proyecto, incluida la estructura.
-- `scripts/`: scripts del repositorio y espacio reservado para automatizaciones futuras.
-- `.github/workflows/ghcr-publish.yml`: publica la imagen Docker raíz en GHCR al publicar un release.
+Mapa detallado del árbol del repositorio (contribuidores): [CONTRIBUTING.md — Repository layout](CONTRIBUTING.md#repository-layout).
