@@ -1,0 +1,16 @@
+node_modules
+dist
+.git
+.github
+.env
+.env.*
+!.env.example
+uploads
+sessions
+.session_secret
+tests
+docs
+scripts
+.DS_Store
+CHANGELOG.md
+CONTRIBUTING.md

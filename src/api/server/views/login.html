@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - EasyPages</title>
+    <style>
+        body { display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: system-ui, -apple-system, sans-serif; background-color: #f9fafb; color: #111827; }
+        .card { background: white; padding: 2rem; border-radius: 1rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); width: 100%; max-width: 320px; border: 1px solid #e5e7eb; }
+        
+        .logo { display: flex; align-items: center; gap: 0.75rem; font-weight: bold; font-size: 1.25rem; margin-bottom: 1.5rem; justify-content: center; }
+        
+        .box-icon { display: flex; align-items: center; justify-content: center; }
+
+        input { display: block; width: 100%; padding: 0.5rem; margin-bottom: 1rem; border: 1px solid #d1d5db; border-radius: 0.375rem; box-sizing: border-box; }
+        
+        button { width: 100%; background-color: #FF7A18; color: white; padding: 0.5rem; border: none; border-radius: 0.375rem; font-weight: 500; cursor: pointer; transition: background 0.2s; }
+        button:hover { background-color: #e06005; }
+        
+        .error { background: #fee2e2; color: #991b1b; padding: 0.75rem; border-radius: 0.375rem; font-size: 0.875rem; margin-bottom: 1rem; text-align: center; border: 1px solid #fecaca; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="logo">
+            <div class="box-icon">
+                <svg width="48" height="48" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <filter id="softShadow" x="0" y="0" width="1024" height="1024" filterUnits="userSpaceOnUse">
+                      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#000000" flood-opacity="0.18"/>
+                    </filter>
+                    <clipPath id="frontClip">
+                      <rect x="342" y="267" width="420" height="570" rx="88" ry="88"/>
+                    </clipPath>
+                  </defs>
+                  
+                  <rect x="64" y="64" width="896" height="896" rx="210" fill="#FF7A18"/>
+                  
+                  <g filter="url(#softShadow)">
+                    <rect x="262" y="187" width="420" height="570" rx="82" ry="82" fill="#FFFFFF" opacity="0.22" stroke="#FFFFFF" stroke-opacity="0.18" stroke-width="8"/>
+                    <rect x="302" y="227" width="420" height="570" rx="85" ry="85" fill="#FFFFFF" opacity="0.36" stroke="#FFFFFF" stroke-opacity="0.20" stroke-width="8"/>
+                    <rect x="342" y="267" width="420" height="570" rx="88" ry="88" fill="#FFFFFF" opacity="0.96"/>
+                    <g clip-path="url(#frontClip)">
+                      <path d="M690 285H762V357C735 352 715 333 690 285Z" fill="#FFFFFF" opacity="0.42"/>
+                      <path d="M690 285C715 333 735 352 762 357" fill="none" stroke="#FFFFFF" stroke-opacity="0.20" stroke-width="10" stroke-linecap="round"/>
+                    </g>
+                  </g>
+                </svg>
+            </div>
+            EasyPages
+        </div>
+        <form action="/login" method="POST">
+            <div id="error" class="error" style="display: none;">Credenciales incorrectas</div>
+            <label style="font-size: 0.875rem; font-weight: 500; display: block; margin-bottom: 0.25rem;">Usuario</label>
+            <input type="text" name="username" required autofocus>
+            <label style="font-size: 0.875rem; font-weight: 500; display: block; margin-bottom: 0.25rem;">Contraseña</label>
+            <input type="password" name="password" required>
+            <button type="submit">Entrar</button>
+        </form>
+    </div>
+    <script>
+        if (new URLSearchParams(window.location.search).has('error')) {
+            document.getElementById('error').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
