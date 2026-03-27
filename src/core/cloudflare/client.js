@@ -28,13 +28,69 @@ const extractCloudflareMessage = (payload) => {
   return null;
 };
 
+const MAX_DETAIL_MESSAGE_LEN = 2000;
+
+/**
+ * Expone solo `code` y `message` (Cloudflare API v4) para no reenviar objetos arbitrarios al cliente.
+ * @param {unknown} raw
+ * @returns {Array<{ code?: number, message: string }> | undefined}
+ */
+export const sanitizeCloudflareErrorDetails = (raw) => {
+  if (raw == null) {
+    return undefined;
+  }
+
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+    return [{ message: trimmed.slice(0, MAX_DETAIL_MESSAGE_LEN) }];
+  }
+
+  if (!Array.isArray(raw)) {
+    return undefined;
+  }
+
+  const out = [];
+  for (const entry of raw) {
+    if (typeof entry === 'string') {
+      const t = entry.trim();
+      if (t) {
+        out.push({ message: t.slice(0, MAX_DETAIL_MESSAGE_LEN) });
+      }
+      continue;
+    }
+
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      continue;
+    }
+
+    const message =
+      typeof entry.message === 'string' ? entry.message.trim().slice(0, MAX_DETAIL_MESSAGE_LEN) : '';
+    if (!message) {
+      continue;
+    }
+
+    const row = { message };
+    const code = entry.code;
+    if (typeof code === 'number' && Number.isFinite(code)) {
+      row.code = code;
+    }
+    out.push(row);
+  }
+
+  return out.length > 0 ? out : undefined;
+};
+
 const normalizeCloudflareError = (error, fallbackMessage) => {
   if (error.response) {
     const normalizedError = new Error(
       extractCloudflareMessage(error.response.data) || fallbackMessage,
     );
     normalizedError.status = error.response.status;
-    normalizedError.details = error.response.data?.errors || error.response.data?.messages;
+    const rawDetails = error.response.data?.errors ?? error.response.data?.messages;
+    normalizedError.details = sanitizeCloudflareErrorDetails(rawDetails);
     return normalizedError;
   }
 

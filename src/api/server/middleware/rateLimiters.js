@@ -5,6 +5,17 @@ export const loginLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  requestWasSuccessful: (req, res) => {
+    if (res.statusCode >= 400) {
+      return false;
+    }
+    if (res.statusCode === 302) {
+      const loc = String(res.getHeader('Location') ?? '');
+      return !loc.includes('/login');
+    }
+    return true;
+  },
   handler: (req, res) => {
     res.redirect(302, '/login?error=rate');
   },

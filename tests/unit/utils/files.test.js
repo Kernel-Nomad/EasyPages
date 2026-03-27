@@ -1,4 +1,8 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { test } from 'node:test';
 import {
   isPathInsideDirectory,
@@ -22,7 +26,15 @@ test('isSafeZipEntry mirrors normalizeZipEntryPath', () => {
 });
 
 test('isPathInsideDirectory contains targets within base', () => {
-  assert.equal(isPathInsideDirectory('/a/b/c', '/a/b'), true);
-  assert.equal(isPathInsideDirectory('/a/b', '/a/b'), true);
-  assert.equal(isPathInsideDirectory('/a/c', '/a/b'), false);
+  const base = mkdtempSync(path.join(tmpdir(), 'ep-ispath-'));
+  const nested = path.join(base, 'nested');
+  fs.mkdirSync(nested);
+  const innerFile = path.join(nested, 'f.txt');
+  writeFileSync(innerFile, 'x');
+  const outside = mkdtempSync(path.join(tmpdir(), 'ep-ispath-out-'));
+
+  assert.equal(isPathInsideDirectory(innerFile, base), true);
+  assert.equal(isPathInsideDirectory(nested, base), true);
+  assert.equal(isPathInsideDirectory(base, base), true);
+  assert.equal(isPathInsideDirectory(outside, base), false);
 });

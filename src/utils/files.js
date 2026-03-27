@@ -8,21 +8,84 @@ export const ensureDirectory = (directoryPath) => {
   }
 };
 
+/** Archivo opaco bajo `EASYPAGES_DATA_DIR` para firmar cookies sin definir `SESSION_SECRET`. */
+export const SESSION_SECRET_FILENAME = '.easypages-session-secret';
+
+const MIN_SESSION_SECRET_FILE_LENGTH = 32;
+
+const readTrimmedSecretLine = (raw) => {
+  const line = String(raw).split(/\r?\n/)[0]?.trim() ?? '';
+  return line;
+};
+
+const readValidSecretFromFile = (secretPath) => {
+  const raw = fs.readFileSync(secretPath, 'utf8');
+  const line = readTrimmedSecretLine(raw);
+  return line.length >= MIN_SESSION_SECRET_FILE_LENGTH ? line : '';
+};
+
 /**
  * Secreto para firmar la cookie de sesión (`cookie-session`).
- * Si `SESSION_SECRET` no está definido, genera uno en memoria y avisa: las sesiones no sobreviven al reinicio.
- * @param {string | undefined} sessionSecretFromEnv Valor ya normalizado (p. ej. desde `trimEnv`).
+ * Orden: `SESSION_SECRET` en entorno → archivo en `dataDir` → aleatorio en memoria (solo dev).
+ * @param {{ sessionSecretFromEnv?: string, dataDir?: string }} [options]
  * @returns {string}
  */
-export const resolveCookieSessionSecret = (sessionSecretFromEnv) => {
+export const resolveCookieSessionSecret = ({
+  sessionSecretFromEnv,
+  dataDir,
+} = {}) => {
   const trimmed =
     typeof sessionSecretFromEnv === 'string' ? sessionSecretFromEnv.trim() : '';
   if (trimmed) {
     return trimmed;
   }
 
+  const dir = typeof dataDir === 'string' ? dataDir.trim() : '';
+  if (dir) {
+    ensureDirectory(dir);
+    const secretPath = path.join(dir, SESSION_SECRET_FILENAME);
+    try {
+      const fromFile = readValidSecretFromFile(secretPath);
+      if (fromFile) {
+        try {
+          fs.chmodSync(secretPath, 0o600);
+        } catch {
+          // ignorar (p. ej. Windows o FS sin chmod)
+        }
+        return fromFile;
+      }
+    } catch (e) {
+      if (e.code !== 'ENOENT') {
+        throw e;
+      }
+    }
+
+    const secret = crypto.randomBytes(32).toString('hex');
+    try {
+      fs.writeFileSync(secretPath, `${secret}\n`, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
+    } catch (e) {
+      if (e.code === 'EEXIST') {
+        const again = readValidSecretFromFile(secretPath);
+        if (again) {
+          return again;
+        }
+        throw new Error(
+          `EasyPages: ${secretPath} existe pero no contiene un secreto válido (≥${MIN_SESSION_SECRET_FILE_LENGTH} caracteres).`,
+        );
+      }
+      throw e;
+    }
+    try {
+      fs.chmodSync(secretPath, 0o600);
+    } catch {
+      // ignorar
+    }
+    return secret;
+  }
+
   console.warn(
-    '[EasyPages] SESSION_SECRET no definido: se usa un secreto aleatorio solo en memoria. Las sesiones dejarán de ser válidas al reiniciar; con varias réplicas define el mismo SESSION_SECRET en el entorno.',
+    '[EasyPages] Sin SESSION_SECRET ni EASYPAGES_DATA_DIR: se usa un secreto aleatorio solo en memoria. ' +
+      'Las sesiones caducan al reiniciar. En Docker, el volumen en /data guarda el secreto en .easypages-session-secret.',
   );
   return crypto.randomBytes(32).toString('hex');
 };

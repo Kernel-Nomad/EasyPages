@@ -13,6 +13,13 @@ export const CF_ACCOUNT_ID = trimEnv(process.env.CF_ACCOUNT_ID);
 export const AUTH_USER = trimEnv(process.env.AUTH_USER);
 export const AUTH_PASS = trimEnv(process.env.AUTH_PASS);
 export const SESSION_SECRET = trimEnv(process.env.SESSION_SECRET);
+export const EASYPAGES_DATA_DIR = trimEnv(process.env.EASYPAGES_DATA_DIR);
+
+/** Formato bcrypt estándar (60 caracteres): $2a|b|y$ + coste + salt + hash. */
+const AUTH_PASS_BCRYPT_RE = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/;
+
+export const isValidAuthPassBcryptFormat = (value) =>
+  typeof value === 'string' && AUTH_PASS_BCRYPT_RE.test(value);
 
 /**
  * Cookie de sesión `Secure`: booleano explícito.
@@ -32,6 +39,33 @@ export const SESSION_COOKIE_SECURE =
   explicitSessionCookieSecure !== null
     ? explicitSessionCookieSecure
     : process.env.NODE_ENV === 'production';
+
+/**
+ * Valor de `app.set('trust proxy', …)` (Express).
+ * Por omisión `1` (primer hop de confianza), típico detrás de un reverse proxy.
+ * `TRUST_PROXY=false|0|no` desactiva la confianza en `X-Forwarded-*` (p. ej. exposición directa sin proxy);
+ * en ese caso los rate limits usan la IP del socket, no la cabecera.
+ */
+const parseTrustProxy = () => {
+  const raw = process.env.TRUST_PROXY;
+  if (raw === undefined || raw === '') {
+    return 1;
+  }
+  const v = String(raw).trim().toLowerCase();
+  if (v === 'false' || v === '0' || v === 'no') {
+    return false;
+  }
+  if (v === 'true' || v === 'yes') {
+    return 1;
+  }
+  const n = Number.parseInt(v, 10);
+  if (!Number.isNaN(n) && n >= 0) {
+    return n;
+  }
+  return 1;
+};
+
+export const TRUST_PROXY = parseTrustProxy();
 
 export const missingRequiredServerEnvKeys = ({
   cfApiToken,
@@ -78,4 +112,5 @@ export const assertRequiredServerEnv = () => {
     }
     throw new Error(msg);
   }
+
 };

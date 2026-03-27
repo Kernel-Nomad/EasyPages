@@ -16,7 +16,7 @@ You can open issues for bugs or ideas, and pull requests for fixes or features.
 
 1. Use **Node.js 24+** (`engines` in [`package.json`](./package.json), optional [`.nvmrc`](./.nvmrc) for `nvm use`).
 2. Install dependencies: `npm install`.
-3. Copy `.env.example` to `.env` and fill in values (see README for token scope).
+3. Copy `.env.example` to `.env` and fill in values (see README for token scope). **`AUTH_PASS`**: prefer a bcrypt hash; plain text is allowed for homelab-style setups (see README).
 4. For day-to-day work you usually run **two terminals**:
    - Backend: `npm run dev` (watches `src/index.js`).
    - Frontend: `npm run dev:ui` (Vite against the API).
@@ -41,6 +41,7 @@ Run these in order after your changes:
 1. `npm test`
 2. `npm run check`
 3. `npm run build` **if** you changed UI code, files under `public/`, or anything that affects the Vite/Tailwind build.
+4. If you changed the [`Dockerfile`](./Dockerfile), native dependencies (e.g. `bcrypt`), or the Node/Alpine base image, run `docker build -t easypages-local .` locally to confirm the image still builds (requires Docker).
 
 Fix any failures before requesting review.
 
@@ -75,6 +76,8 @@ Detailed tree (for navigation and PRs):
 - `tests/integration/`: HTTP tests against `createApp` (login, CSRF, mocked Cloudflare).
 - `scripts/`: `run-tests.mjs`, `syntax-check.mjs`, and other automation.
 - `.github/workflows/ghcr-publish.yml`: publishes the root Docker image to GHCR on release publication.
+- `.github/workflows/ci.yml`: runs `npm ci`, tests, syntax check, and UI build on pushes and pull requests to `main`.
+- `.github/workflows/codeql.yml`: scheduled and PR CodeQL analysis for JavaScript/TypeScript.
 
 ### Architectural boundaries
 
@@ -102,6 +105,10 @@ Changes here need extra care and matching tests:
 - Avoid introducing new tooling when the current stack is sufficient.
 - Add or adjust tests in `tests/` when you change validation, file/ZIP utilities, or `fetch`/API client behavior.
 
+## Dependency and dev-server security
+
+- Run `npm audit` periodically. Reports may flag **Vite / esbuild** (dev dependency) with fixes that require a **semver-major** Vite upgrade; that advisory concerns the **development server** (`npm run dev:ui`), not the static UI served in production by Express. Do not expose the Vite dev server to untrusted networks. Plan major Vite upgrades when you can absorb breaking changes; until then, treat the risk as dev-environment only.
+
 ## Pull requests
 
 - Describe **what** changed and **why** in plain language.
@@ -110,15 +117,17 @@ Changes here need extra care and matching tests:
 ## Releases, Docker image, and Compose
 
 - Publishing a **GitHub Release** triggers `.github/workflows/ghcr-publish.yml` and pushes a versioned image to GHCR. The `validate-release` job installs Node from [`.nvmrc`](./.nvmrc) (currently **24**), runs `npm ci`, tests, and `npm run build`; `build-and-push` builds the image from the root [`Dockerfile`](./Dockerfile) (`node:24-alpine`). Keep the `image:` tag in [`docker-compose.yml`](./docker-compose.yml) aligned with the release you want users to run by default (same version as the app when you cut a release).
-- Define a stable **`SESSION_SECRET`** in `.env` for production (e.g. `openssl rand -hex 32`). If it is omitted, the server generates a random secret at startup and logs a warning: sessions are invalidated on restart, and every replica must share the same secret if you scale horizontally.
+- **`SESSION_SECRET`** in `.env` is optional. If set, it signs session cookies. If omitted and **`EASYPAGES_DATA_DIR`** is set (e.g. `/data` in Compose), the server creates or reuses **`.easypages-session-secret`** in that directory so sessions survive restarts without extra configuration. If neither is available (typical local `npm run dev` without a data dir), the server uses a random in-memory secret and logs a warning. Horizontal scaling still requires every instance to share the same signing material (shared data volume or identical `SESSION_SECRET`).
 - Building your own image from the [`Dockerfile`](./Dockerfile) and pointing `image:` at your registry follows the same rules as the README Notes on `NODE_ENV=production` and session cookies.
 
 ### Runtime notes (dist, sessions, scaling)
 
 - The server serves the UI from `dist/`, so `npm run build` is required before `npm run start` when running from source.
-- **Login session** data (auth flag, username, CSRF token) lives in the signed cookie `easypages_sid` (`cookie-session`), keyed by `SESSION_SECRET`. There is **no** session directory or database for that: clearing the cookie or changing the secret ends the session. The GHCR image sets `NODE_ENV=production`. If `SESSION_SECRET` is unset, the app generates one at startup and warns: treat that as dev-only unless you accept logout on every restart.
+- **Login session** data (auth flag, username, CSRF token) lives in the signed cookie `easypages_sid` (`cookie-session`). The signing key comes from **`SESSION_SECRET`** if set, otherwise from **`.easypages-session-secret`** under **`EASYPAGES_DATA_DIR`**, otherwise a one-off random key (dev). The cookie payload is signed but not encrypted: rely on **HttpOnly**, **HTTPS**, **CSP**, and avoiding XSS. There is no server-side session store; clearing the cookie or changing the signing key ends the session. The GHCR image sets `NODE_ENV=production`.
 - Session cookies: default `Secure` in production unless you set `SESSION_COOKIE_SECURE` (the shipped `.env.example` sets `false` for HTTP installs).
-- **Multiple replicas:** all instances must use the **same** `SESSION_SECRET` so they can verify the same cookie; no sticky sessions or shared file store is required for login state.
-- `EASYPAGES_DATA_DIR` (e.g. `/data` in Compose) remains for **uploads** and other persisted files under the documented layout, not for server-side session files.
+- **Multiple replicas:** all instances must share the **same signing key** (same **`SESSION_SECRET`** or the same **`.easypages-session-secret`** on a shared volume); no sticky sessions are required for login state.
+- `EASYPAGES_DATA_DIR` (e.g. `/data` in Compose) holds **uploads** and other persisted files, and (unless `SESSION_SECRET` is set) the **`.easypages-session-secret`** file used to sign cookies.
 - Static UI files under `dist/` (`index.html`, `/assets/*`, etc.) are only served to **authenticated** browsers; login still loads `/login.css` and `/login-error.js` without a session.
+- **Reverse proxy and rate limiting:** the server sets Express `trust proxy` from **`TRUST_PROXY`** (default **`1`**, i.e. one trusted hop). In production, terminate TLS and set `X-Forwarded-For` only on a **trusted** proxy so clients cannot spoof IPs and weaken **express-rate-limit**. If the Node process is exposed **directly** to the internet without such a proxy, set **`TRUST_PROXY=false`** (or `0` / `no`) so limits use the TCP peer address.
+- **Docker image user:** the published image runs as the **`node`** user (uid **1000**). If uploads or `EASYPAGES_DATA_DIR` fail with permission errors, ensure the mounted host directory is writable (e.g. `chown -R 1000:1000 ./easypages-data` on Linux).
 

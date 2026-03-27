@@ -5,12 +5,12 @@ const isApiRequest = (req) =>
 
 export const createErrorHandler = () => (err, req, res, next) => {
   if (res.headersSent) {
-    next(err);
+    logServerError(req, err, 'errorHandler (headers already sent)');
     return;
   }
 
   const api = isApiRequest(req);
-  const isCsrf = err?.code === 'EBADCSRFTOKEN' || err?.status === 403;
+  const isCsrf = err?.code === 'EBADCSRFTOKEN';
 
   if (isCsrf) {
     if (api) {

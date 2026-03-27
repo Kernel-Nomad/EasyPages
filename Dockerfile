@@ -21,6 +21,10 @@ COPY src ./src
 
 COPY --from=build /app/dist ./dist
 
+RUN chown -R node:node /app
+
+USER node
+
 ENV NODE_ENV=production
 ENV PORT=8002
 EXPOSE 8002

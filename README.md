@@ -2,9 +2,11 @@
   <img src="./public/logo.svg" alt="EasyPages" width="200"/>
 </p>
 
-<h3>
-  <a href="#english">English</a> | <a href="#español">Español</a>
-</h3>
+<div align="center">
+  <h3>
+    <a href="#english">English</a> | <a href="#español">Español</a>
+  </h3>
+</div>
 
 <br>
 
@@ -53,7 +55,7 @@ EasyPages is a self-hosted dashboard for managing Cloudflare Pages projects from
 **You need:** Docker Compose and a Cloudflare API token that can edit Pages ([how to create it](#cloudflare-token-permissions)).
 
 1. Create a folder and download [`docker-compose.yml`](https://raw.githubusercontent.com/Kernel-Nomad/EasyPages/main/docker-compose.yml) and [`.env.example`](https://raw.githubusercontent.com/Kernel-Nomad/EasyPages/main/.env.example) (branch `main`, or pin a [release tag](https://github.com/Kernel-Nomad/EasyPages/releases) in the URLs).
-2. Copy to `.env` and set **`CF_API_TOKEN`**, **`CF_ACCOUNT_ID`**, **`AUTH_USER`**, **`AUTH_PASS`**. **Strongly recommended:** set **`SESSION_SECRET`** (e.g. `openssl rand -hex 32`) so sessions survive restarts — see [`.env.example`](.env.example).
+2. Copy to `.env` and set **`CF_API_TOKEN`**, **`CF_ACCOUNT_ID`**, **`AUTH_USER`**, and **`AUTH_PASS`**. **`AUTH_PASS`** should be a **bcrypt hash** of your dashboard password for anything beyond a casual homelab (plain text is accepted if the value is not a bcrypt-shaped string — weaker if `.env` leaks). After `npm install`, generate a hash with: `node -e "import('bcrypt').then(({default:b})=>console.log(b.hashSync('YOUR_PASSWORD',10)))"`. [`.env.example`](.env.example) ships a **demo-only** hash whose password is documented there — replace it in production. **Sessions:** with the default Compose volume on `/data`, the server stores a signing key in **`.easypages-session-secret`** there so logins survive container restarts without extra env vars. Override with **`SESSION_SECRET`** only if you need to (see [`.env.example`](.env.example)).
 3. Start: `docker compose up -d --pull always`
 4. Open [http://localhost:8002](http://localhost:8002)
 
@@ -67,6 +69,8 @@ docker compose up -d --pull always
 ```
 
 No git clone required. **Login over HTTP:** [`.env.example`](.env.example) sets `SESSION_COOKIE_SECURE=false`. If you terminate **HTTPS** in front of the container, set `SESSION_COOKIE_SECURE=true`. Session data is stored in a **signed cookie** (`easypages_sid`), not in a server-side session folder.
+
+With a **reverse proxy**, keep the default **`TRUST_PROXY`** (one trusted hop for forwarded headers and rate limits). If the Node process is reachable **without** a trusted proxy in front, set **`TRUST_PROXY=false`** — see [runtime notes in CONTRIBUTING.md](CONTRIBUTING.md#runtime-notes-dist-sessions-scaling).
 
 **From a git clone:** use the root [`docker-compose.yml`](docker-compose.yml) and [`.env.example`](.env.example) instead of `curl`.
 
@@ -111,7 +115,7 @@ Install dependencies:
 npm install
 ```
 
-Create `.env` from [`.env.example`](.env.example).
+Create `.env` from [`.env.example`](.env.example). Set **`AUTH_PASS`** to a **bcrypt hash** of your password (same command as in the Docker step above), or plain text for a minimal homelab setup.
 
 For a production-like local run:
 
@@ -134,7 +138,7 @@ npm run check
 
 ### Technical details
 
-Signed session cookie, `SESSION_SECRET`, cookies, replicas, and how `dist/` is served: [CONTRIBUTING.md — Runtime notes](CONTRIBUTING.md#runtime-notes-dist-sessions-scaling). Repository layout: [CONTRIBUTING.md — Repository layout](CONTRIBUTING.md#repository-layout).
+Signed session cookie, where the signing key comes from (`EASYPAGES_DATA_DIR` file vs `SESSION_SECRET`), replicas, and how `dist/` is served: [CONTRIBUTING.md — Runtime notes](CONTRIBUTING.md#runtime-notes-dist-sessions-scaling). Repository layout: [CONTRIBUTING.md — Repository layout](CONTRIBUTING.md#repository-layout).
 
 ---
 
@@ -148,9 +152,11 @@ EasyPages es un panel self-hosted para gestionar proyectos de Cloudflare Pages d
 
 ## Instalación con Docker (recomendado)
 
-Usa la lista numerada y el bloque `bash` de **[Docker install (recommended)](#docker-install-recommended)** (misma carpeta, `curl`, `cp .env.example .env`, rellena las variables obligatorias y, en producción, **`SESSION_SECRET`**, `docker compose up -d --pull always`, luego [http://localhost:8002](http://localhost:8002)).
+Usa la lista numerada y el bloque `bash` de **[Docker install (recommended)](#docker-install-recommended)** (misma carpeta, `curl`, `cp .env.example .env`, rellena las variables obligatorias, `docker compose up -d --pull always`, luego [http://localhost:8002](http://localhost:8002)). **`AUTH_PASS`**: lo recomendable es un **hash bcrypt**; en homelab puedes poner la contraseña en **texto plano** si no parece un hash bcrypt (más débil si filtra el `.env`). El README en inglés y [`.env.example`](.env.example) explican cómo generar el hash. Las sesiones persisten tras reinicios gracias al volumen en `/data` y al archivo **`.easypages-session-secret`** (opcional **`SESSION_SECRET`** en [`.env.example`](.env.example)).
 
 **HTTP / HTTPS y `SESSION_COOKIE_SECURE`:** igual que en la sección en inglés y en [`.env.example`](.env.example).
+
+**Proxy inverso y `TRUST_PROXY`:** por defecto se confía en un salto; si el proceso Node está expuesto **sin** un proxy de confianza, define **`TRUST_PROXY=false`** — [notas de runtime en CONTRIBUTING.md](CONTRIBUTING.md#runtime-notes-dist-sessions-scaling).
 
 **Con el repo clonado:** [`docker-compose.yml`](docker-compose.yml) y [`.env.example`](.env.example) en la raíz en lugar de `curl`. Más variables e imágenes GHCR: [`.env.example`](.env.example) y [CONTRIBUTING.md](CONTRIBUTING.md#releases-docker-image-and-compose).
 
@@ -191,7 +197,7 @@ Usa **Node.js 24+** (misma major que la imagen Docker y el CI de releases). Con 
 npm install
 ```
 
-Crea `.env` desde [`.env.example`](.env.example). Ejecución parecida a producción:
+Crea `.env` desde [`.env.example`](.env.example). **`AUTH_PASS`**: hash bcrypt (igual que en Docker) o texto plano en homelab. Ejecución parecida a producción:
 
 ```bash
 npm run build
@@ -209,4 +215,4 @@ npm run check
 
 ### Detalles técnicos
 
-Cookie de sesión firmada, `SESSION_SECRET`, cookies, réplicas y estáticos: [CONTRIBUTING.md — Runtime notes](CONTRIBUTING.md#runtime-notes-dist-sessions-scaling) (en inglés). Estructura del repo: [CONTRIBUTING.md — Repository layout](CONTRIBUTING.md#repository-layout).
+Cookie de sesión firmada, origen de la clave de firma, réplicas y estáticos: [CONTRIBUTING.md — Runtime notes](CONTRIBUTING.md#runtime-notes-dist-sessions-scaling) (en inglés). Estructura del repo: [CONTRIBUTING.md — Repository layout](CONTRIBUTING.md#repository-layout).

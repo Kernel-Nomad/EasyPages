@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import bcrypt from 'bcrypt';
 
 const envKeys = [
   'CF_API_TOKEN',
@@ -52,7 +53,7 @@ before(async () => {
   process.env.CF_API_TOKEN = 'test-token';
   process.env.CF_ACCOUNT_ID = 'test-account';
   process.env.AUTH_USER = 'testuser';
-  process.env.AUTH_PASS = 'testpass';
+  process.env.AUTH_PASS = bcrypt.hashSync('testpass', 4);
   process.env.SESSION_SECRET = '0123456789abcdef0123456789abcdef';
   process.env.NODE_ENV = 'test';
   delete process.env.SESSION_COOKIE_SECURE;

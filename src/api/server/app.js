@@ -10,8 +10,10 @@ import {
   assertRequiredServerEnv,
   CF_ACCOUNT_ID,
   CF_API_TOKEN,
+  EASYPAGES_DATA_DIR,
   SESSION_COOKIE_SECURE,
   SESSION_SECRET,
+  TRUST_PROXY,
 } from '../../config/env.js';
 import {
   distDir,
@@ -50,7 +52,10 @@ export const createApp = (options = {}) => {
 
   ensureDirectory(uploadsDir);
 
-  const finalSessionSecret = resolveCookieSessionSecret(SESSION_SECRET);
+  const finalSessionSecret = resolveCookieSessionSecret({
+    sessionSecretFromEnv: SESSION_SECRET,
+    dataDir: EASYPAGES_DATA_DIR,
+  });
   const upload = createUploadMiddleware({ destination: uploadsMulterDest });
   const requireAuth = createRequireAuth({ authUser: AUTH_USER, authPass: AUTH_PASS });
   const csrfProtection = createSessionCsrfProtection();
@@ -69,7 +74,7 @@ export const createApp = (options = {}) => {
 
   const app = express();
 
-  app.set('trust proxy', 1);
+  app.set('trust proxy', TRUST_PROXY);
 
   app.use(helmet({
     contentSecurityPolicy: {

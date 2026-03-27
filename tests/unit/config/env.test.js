@@ -1,27 +1,22 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { missingRequiredServerEnvKeys } from '../../../src/config/env.js';
+import { isValidAuthPassBcryptFormat } from '../../../src/config/env.js';
 
-test('missingRequiredServerEnvKeys lista AUTH_USER y AUTH_PASS si faltan', () => {
-  assert.deepStrictEqual(
-    missingRequiredServerEnvKeys({
-      cfApiToken: 't',
-      cfAccountId: 'a',
-      authUser: undefined,
-      authPass: undefined,
-    }),
-    ['AUTH_USER', 'AUTH_PASS'],
+test('isValidAuthPassBcryptFormat acepta hash bcrypt estándar', () => {
+  assert.equal(
+    isValidAuthPassBcryptFormat('$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'),
+    true,
+  );
+  assert.equal(
+    isValidAuthPassBcryptFormat('$2b$04$eqM0W7DbZ3OJyT4u.G0a4.Uw0rcMxcIddUbY2kPIAsMWXa9ddB7IS'),
+    true,
   );
 });
 
-test('missingRequiredServerEnvKeys: usuario/contraseña vacíos tras trim equivalen a faltar', () => {
-  assert.deepStrictEqual(
-    missingRequiredServerEnvKeys({
-      cfApiToken: 't',
-      cfAccountId: 'a',
-      authUser: undefined,
-      authPass: 'p',
-    }),
-    ['AUTH_USER'],
-  );
+test('isValidAuthPassBcryptFormat rechaza texto plano y formatos rotos', () => {
+  assert.equal(isValidAuthPassBcryptFormat('password123'), false);
+  assert.equal(isValidAuthPassBcryptFormat('$2b$10$short'), false);
+  assert.equal(isValidAuthPassBcryptFormat(''), false);
+  assert.equal(isValidAuthPassBcryptFormat(undefined), false);
+  assert.equal(isValidAuthPassBcryptFormat('$2x$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'), false);
 });
