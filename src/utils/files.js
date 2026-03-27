@@ -8,50 +8,23 @@ export const ensureDirectory = (directoryPath) => {
   }
 };
 
-export const resolveSessionSecret = (secretFilePath, initialSessionSecret) => {
-  if (initialSessionSecret) {
-    return initialSessionSecret.trim();
+/**
+ * Secreto para firmar la cookie de sesión (`cookie-session`).
+ * Si `SESSION_SECRET` no está definido, genera uno en memoria y avisa: las sesiones no sobreviven al reinicio.
+ * @param {string | undefined} sessionSecretFromEnv Valor ya normalizado (p. ej. desde `trimEnv`).
+ * @returns {string}
+ */
+export const resolveCookieSessionSecret = (sessionSecretFromEnv) => {
+  const trimmed =
+    typeof sessionSecretFromEnv === 'string' ? sessionSecretFromEnv.trim() : '';
+  if (trimmed) {
+    return trimmed;
   }
 
-  const hasPersistedDataDir = Boolean(process.env.EASYPAGES_DATA_DIR?.trim());
-  const isProduction = process.env.NODE_ENV === 'production';
-
-  if (isProduction && !hasPersistedDataDir) {
-    throw new Error(
-      'En producción debe definir SESSION_SECRET en el entorno, o bien EASYPAGES_DATA_DIR con un volumen persistente para leer o generar .session_secret.',
-    );
-  }
-
-  let finalSessionSecret;
-  if (fs.existsSync(secretFilePath)) {
-    try {
-      finalSessionSecret = fs.readFileSync(secretFilePath, 'utf-8').trim();
-    } catch (error) {
-      console.warn(
-        '[EasyPages] No se pudo leer .session_secret:',
-        error instanceof Error ? error.message : error,
-      );
-    }
-  }
-
-  if (!finalSessionSecret) {
-    finalSessionSecret = crypto.randomBytes(32).toString('hex');
-    if (isProduction && hasPersistedDataDir) {
-      console.warn(
-        '[EasyPages] SESSION_SECRET no estaba definido: se generó y guardó .session_secret bajo EASYPAGES_DATA_DIR (primera ejecución o volumen vacío).',
-      );
-    }
-    try {
-      fs.writeFileSync(secretFilePath, finalSessionSecret, 'utf-8');
-    } catch (error) {
-      console.warn(
-        '[EasyPages] No se pudo escribir .session_secret; el secreto solo vivirá en memoria hasta reiniciar:',
-        error instanceof Error ? error.message : error,
-      );
-    }
-  }
-
-  return finalSessionSecret;
+  console.warn(
+    '[EasyPages] SESSION_SECRET no definido: se usa un secreto aleatorio solo en memoria. Las sesiones dejarán de ser válidas al reiniciar; con varias réplicas define el mismo SESSION_SECRET en el entorno.',
+  );
+  return crypto.randomBytes(32).toString('hex');
 };
 
 export const safeUnlink = (filePath, uploadsDir) => {

@@ -1,12 +1,6 @@
-# EasyPages — build the image locally instead of pulling from GHCR.
-# Use from the repository root (full source + Dockerfile required).
-#
-#   docker compose -f docker-compose-build.yml up -d --build
-#
-# Same runtime contract as docker-compose.yml: `.env` (from .env.example),
-# port 8002, data under ./easypages-data → /data.
-#
-# If `.env` is missing, `docker compose` fails before the container starts.
+# EasyPages — build from repo: docker compose -f docker-compose-build.yml up -d --build
+# Same as docker-compose.yml; see README.md.
+name: easypages
 services:
   easypages:
     container_name: easypages

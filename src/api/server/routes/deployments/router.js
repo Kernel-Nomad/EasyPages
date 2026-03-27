@@ -99,7 +99,6 @@ export const createDeploymentsRouter = ({
       const candidates = await deploymentsService.getDeleteCandidates(toProjectInput(req));
       res.json(candidates);
     } catch (error) {
-      console.error('Error obteniendo candidatos de borrado:', error instanceof Error ? error.message : error);
       sendErrorResponse(res, error, 'Error obteniendo lista de borrado', req);
     }
   });
@@ -121,7 +120,6 @@ export const createDeploymentsRouter = ({
       );
       res.json(toDeleteDeploymentsResponse(result));
     } catch (error) {
-      console.error('Error en borrado masivo de despliegues:', error instanceof Error ? error.message : error);
       sendErrorResponse(res, error, 'Error procesando la eliminación', req);
     }
   });
@@ -156,7 +154,6 @@ export const createDeploymentsRouter = ({
       cleanupUploadFile(req.file, uploadsDir);
       res.json(result);
     } catch (error) {
-      console.error('Error en despliegue por upload:', error instanceof Error ? error.message : error);
       cleanupUploadFile(req.file, uploadsDir);
       sendErrorResponse(res, error, 'Error al procesar el despliegue en Cloudflare', req);
     }

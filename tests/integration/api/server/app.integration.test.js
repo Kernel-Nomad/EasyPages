@@ -1,7 +1,5 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -44,7 +42,6 @@ const extractCsrfFromLoginHtml = (html) => {
 };
 
 let prevEnv = {};
-let sessionDir;
 let server;
 let baseUrl;
 
@@ -59,8 +56,6 @@ before(async () => {
   process.env.SESSION_SECRET = '0123456789abcdef0123456789abcdef';
   process.env.NODE_ENV = 'test';
   delete process.env.SESSION_COOKIE_SECURE;
-
-  sessionDir = mkdtempSync(path.join(tmpdir(), 'easypages-sess-'));
 
   const mockCloudflare = {
     get: async (resourcePath) => {
@@ -114,7 +109,7 @@ before(async () => {
   const testDir = path.dirname(fileURLToPath(import.meta.url));
   const appJs = path.resolve(testDir, '../../../../src/api/server/app.js');
   const appModule = await import(pathToFileURL(appJs).href);
-  const app = appModule.createApp({ cloudflare: mockCloudflare, sessionStorePath: sessionDir });
+  const app = appModule.createApp({ cloudflare: mockCloudflare });
 
   await new Promise((resolve, reject) => {
     server = app.listen(0, '127.0.0.1', (err) => (err ? reject(err) : resolve()));
@@ -127,7 +122,6 @@ after(async () => {
   await new Promise((resolve) => {
     server.close(() => resolve());
   });
-  rmSync(sessionDir, { recursive: true, force: true });
   for (const k of envKeys) {
     if (prevEnv[k] === undefined) {
       delete process.env[k];

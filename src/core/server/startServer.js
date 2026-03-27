@@ -2,9 +2,19 @@ import { PORT } from '../../config/env.js';
 import { createApp } from '../../api/server/app.js';
 
 export const startServer = ({ port = PORT } = {}) => {
-  const app = createApp();
+  let app;
+  try {
+    app = createApp();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(message || '[EasyPages] Error al crear la aplicación.');
+    process.exit(1);
+  }
+
   const server = app.listen(port, () => {
-    console.log(`✅ EasyPages listo en http://127.0.0.1:${port} (mapea el puerto publicado si usas Docker)`);
+    console.log(
+      `✅ EasyPages en http://127.0.0.1:${port} — con Docker, usa el puerto que publique Compose (p. ej. 8002).`,
+    );
   });
 
   server.on('error', (err) => {

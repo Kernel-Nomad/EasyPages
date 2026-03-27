@@ -14,9 +14,10 @@ You can open issues for bugs or ideas, and pull requests for fixes or features.
 
 ## Local setup
 
-1. Install dependencies: `npm install`.
-2. Copy `.env.example` to `.env` and fill in values (see README for token scope).
-3. For day-to-day work you usually run **two terminals**:
+1. Use **Node.js 24+** (`engines` in [`package.json`](./package.json), optional [`.nvmrc`](./.nvmrc) for `nvm use`).
+2. Install dependencies: `npm install`.
+3. Copy `.env.example` to `.env` and fill in values (see README for token scope).
+4. For day-to-day work you usually run **two terminals**:
    - Backend: `npm run dev` (watches `src/index.js`).
    - Frontend: `npm run dev:ui` (Vite against the API).
 
@@ -63,7 +64,7 @@ Detailed tree (for navigation and PRs):
 - `src/core/cloudflare/`: shared Cloudflare API client.
 - `src/core/projects/`: project validation, mapping and use cases.
 - `src/core/deployments/`: deployment pagination, batch deletion and ZIP upload orchestration.
-- `src/config/`: `.env` loading, runtime paths (`dist/`, `uploads/`, `sessions/`, `.session_secret`, optional `EASYPAGES_DATA_DIR`) and upload limits.
+- `src/config/`: `.env` loading, runtime paths (`dist/`, `uploads/`, optional `EASYPAGES_DATA_DIR`) and upload limits.
 - `src/utils/`: pure helpers for files, ZIP handling and generic validation.
 - `src/web/main.jsx`: React/Vite bootstrap.
 - `src/web/app/`: shell, top-level hooks and layout orchestration.
@@ -108,7 +109,16 @@ Changes here need extra care and matching tests:
 
 ## Releases, Docker image, and Compose
 
-- Publishing a **GitHub Release** triggers `.github/workflows/ghcr-publish.yml` and pushes a versioned image to GHCR. Keep the `image:` tag in [`docker-compose.yml`](./docker-compose.yml) aligned with the release you want users to run by default (same version as the app when you cut a release).
-- Current images support persisting session material under `EASYPAGES_DATA_DIR` (e.g. `/data` in Compose) so **`SESSION_SECRET` is optional** when that volume is mounted as documented in the README.
-- **Older image tags** may still require `SESSION_SECRET` in `.env` if they predate that behavior; operators on legacy tags should set it explicitly. Building your own image from the [`Dockerfile`](./Dockerfile) and pointing `image:` at your registry follows the same rules as the README Notes on `NODE_ENV=production` and session storage.
+- Publishing a **GitHub Release** triggers `.github/workflows/ghcr-publish.yml` and pushes a versioned image to GHCR. The `validate-release` job installs Node from [`.nvmrc`](./.nvmrc) (currently **24**), runs `npm ci`, tests, and `npm run build`; `build-and-push` builds the image from the root [`Dockerfile`](./Dockerfile) (`node:24-alpine`). Keep the `image:` tag in [`docker-compose.yml`](./docker-compose.yml) aligned with the release you want users to run by default (same version as the app when you cut a release).
+- Define a stable **`SESSION_SECRET`** in `.env` for production (e.g. `openssl rand -hex 32`). If it is omitted, the server generates a random secret at startup and logs a warning: sessions are invalidated on restart, and every replica must share the same secret if you scale horizontally.
+- Building your own image from the [`Dockerfile`](./Dockerfile) and pointing `image:` at your registry follows the same rules as the README Notes on `NODE_ENV=production` and session cookies.
+
+### Runtime notes (dist, sessions, scaling)
+
+- The server serves the UI from `dist/`, so `npm run build` is required before `npm run start` when running from source.
+- **Login session** data (auth flag, username, CSRF token) lives in the signed cookie `easypages_sid` (`cookie-session`), keyed by `SESSION_SECRET`. There is **no** session directory or database for that: clearing the cookie or changing the secret ends the session. The GHCR image sets `NODE_ENV=production`. If `SESSION_SECRET` is unset, the app generates one at startup and warns: treat that as dev-only unless you accept logout on every restart.
+- Session cookies: default `Secure` in production unless you set `SESSION_COOKIE_SECURE` (the shipped `.env.example` sets `false` for HTTP installs).
+- **Multiple replicas:** all instances must use the **same** `SESSION_SECRET` so they can verify the same cookie; no sticky sessions or shared file store is required for login state.
+- `EASYPAGES_DATA_DIR` (e.g. `/data` in Compose) remains for **uploads** and other persisted files under the documented layout, not for server-side session files.
+- Static UI files under `dist/` (`index.html`, `/assets/*`, etc.) are only served to **authenticated** browsers; login still loads `/login.css` and `/login-error.js` without a session.
 

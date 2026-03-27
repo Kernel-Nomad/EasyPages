@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import { repoEnvPath } from './paths.js';
+import { trimEnv } from './trimEnv.js';
 
 const dotenvResult = dotenv.config({ path: repoEnvPath });
 if (dotenvResult.error) {
@@ -7,11 +8,11 @@ if (dotenvResult.error) {
 }
 
 export const PORT = process.env.PORT || 8002;
-export const CF_API_TOKEN = process.env.CF_API_TOKEN;
-export const CF_ACCOUNT_ID = process.env.CF_ACCOUNT_ID;
-export const AUTH_USER = process.env.AUTH_USER;
-export const AUTH_PASS = process.env.AUTH_PASS;
-export const SESSION_SECRET = process.env.SESSION_SECRET;
+export const CF_API_TOKEN = trimEnv(process.env.CF_API_TOKEN);
+export const CF_ACCOUNT_ID = trimEnv(process.env.CF_ACCOUNT_ID);
+export const AUTH_USER = trimEnv(process.env.AUTH_USER);
+export const AUTH_PASS = trimEnv(process.env.AUTH_PASS);
+export const SESSION_SECRET = trimEnv(process.env.SESSION_SECRET);
 
 /**
  * Cookie de sesión `Secure`: booleano explícito.
@@ -32,33 +33,48 @@ export const SESSION_COOKIE_SECURE =
     ? explicitSessionCookieSecure
     : process.env.NODE_ENV === 'production';
 
-export const assertRequiredServerEnv = () => {
+export const missingRequiredServerEnvKeys = ({
+  cfApiToken,
+  cfAccountId,
+  authUser,
+  authPass,
+}) => {
   const missing = [];
-
-  if (!CF_API_TOKEN) {
+  if (!cfApiToken) {
     missing.push('CF_API_TOKEN');
   }
-
-  if (!CF_ACCOUNT_ID) {
+  if (!cfAccountId) {
     missing.push('CF_ACCOUNT_ID');
   }
-
-  if (!AUTH_USER) {
+  if (!authUser) {
     missing.push('AUTH_USER');
   }
-
-  if (!AUTH_PASS) {
+  if (!authPass) {
     missing.push('AUTH_PASS');
   }
+  return missing;
+};
+
+export const assertRequiredServerEnv = () => {
+  const missing = missingRequiredServerEnvKeys({
+    cfApiToken: CF_API_TOKEN,
+    cfAccountId: CF_ACCOUNT_ID,
+    authUser: AUTH_USER,
+    authPass: AUTH_PASS,
+  });
 
   if (missing.length > 0) {
-    const list = missing.join(', ');
+    const ordered = ['CF_API_TOKEN', 'CF_ACCOUNT_ID', 'AUTH_USER', 'AUTH_PASS'].filter((name) =>
+      missing.includes(name),
+    );
+    const bullets = ordered.map((name) => `  - ${name}`).join('\n');
     let msg =
-      `EasyPages: faltan variables de entorno obligatorias (${list}). ` +
-      'Crea un archivo .env junto a docker-compose.yml (por ejemplo: cp .env.example .env), rellena esas claves y vuelve a arrancar; o pásalas al contenedor.';
-    if (process.env.EASYPAGES_DATA_DIR) {
-      msg +=
-        ` En Docker, comprueba que env_file apunte a ese .env y que el volumen persista ${process.env.EASYPAGES_DATA_DIR} como indica el README.`;
+      'EasyPages: faltan variables obligatorias en .env (en la misma carpeta que docker-compose.yml):\n' +
+      `${bullets}\n` +
+      'Copia .env.example a .env, rellénalas en ese orden y reinicia (p. ej. docker compose up -d).';
+    const dataDir = process.env.EASYPAGES_DATA_DIR?.trim();
+    if (dataDir) {
+      msg += `\nDocker: env_file debe cargar ese .env; datos persistentes en el volumen montado en ${dataDir}.`;
     }
     throw new Error(msg);
   }

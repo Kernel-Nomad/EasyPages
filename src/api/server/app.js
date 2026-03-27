@@ -1,7 +1,6 @@
+import cookieSession from 'cookie-session';
 import express from 'express';
 import helmet from 'helmet';
-import session from 'express-session';
-import sessionFileStore from 'session-file-store';
 import path from 'path';
 import { createUploadMiddleware } from '../../config/upload.js';
 import {
@@ -16,8 +15,6 @@ import {
 import {
   distDir,
   loginHtmlPath,
-  sessionSecretPath,
-  sessionsStorePath,
   uploadsDir,
   uploadsMulterDest,
 } from '../../config/paths.js';
@@ -35,9 +32,7 @@ import { createDeploymentsRouter } from './routes/deployments/router.js';
 import { createDomainsRouter } from './routes/domains.js';
 import { createProjectsRouter } from './routes/projects/router.js';
 import { createCloudflareClient } from '../../core/cloudflare/client.js';
-import { ensureDirectory, resolveSessionSecret } from '../../utils/files.js';
-
-const FileStore = sessionFileStore(session);
+import { ensureDirectory, resolveCookieSessionSecret } from '../../utils/files.js';
 
 export const createApiNotFoundHandler = () => (req, res) => {
   res.status(404).json({ error: 'Ruta API no encontrada' });
@@ -46,18 +41,15 @@ export const createApiNotFoundHandler = () => (req, res) => {
 /**
  * @param {object} [options]
  * @param {object} [options.cloudflare] Cliente Cloudflare inyectado (p. ej. tests de integración).
- * @param {string} [options.sessionStorePath] Ruta del almacén de sesiones en disco (p. ej. directorio temporal en tests).
  */
 export const createApp = (options = {}) => {
   assertRequiredServerEnv();
 
-  const { cloudflare: cloudflareOverride, sessionStorePath: sessionStorePathOption } = options;
-  const effectiveSessionStorePath = sessionStorePathOption ?? sessionsStorePath;
+  const { cloudflare: cloudflareOverride } = options;
 
   ensureDirectory(uploadsDir);
-  ensureDirectory(effectiveSessionStorePath);
 
-  const finalSessionSecret = resolveSessionSecret(sessionSecretPath, SESSION_SECRET);
+  const finalSessionSecret = resolveCookieSessionSecret(SESSION_SECRET);
   const upload = createUploadMiddleware({ destination: uploadsMulterDest });
   const requireAuth = createRequireAuth({ authUser: AUTH_USER, authPass: AUTH_PASS });
   const csrfProtection = createSessionCsrfProtection();
@@ -87,18 +79,14 @@ export const createApp = (options = {}) => {
   app.use(express.json({ limit: '512kb' }));
   app.use(express.urlencoded({ extended: true, limit: '512kb' }));
 
-  app.use(session({
+  app.use(cookieSession({
     name: 'easypages_sid',
-    secret: finalSessionSecret,
-    store: new FileStore({ path: effectiveSessionStorePath, ttl: 86400, retries: 2 }),
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: SESSION_COOKIE_SECURE,
-      maxAge: 24 * 60 * 60 * 1000,
-      sameSite: 'lax',
-    },
+    keys: [finalSessionSecret],
+    maxAge: 24 * 60 * 60 * 1000,
+    httpOnly: true,
+    secure: SESSION_COOKIE_SECURE,
+    sameSite: 'lax',
+    path: '/',
   }));
 
   app.use(createAuthRouter({

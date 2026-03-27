@@ -2,13 +2,9 @@
   <img src="./public/logo.svg" alt="EasyPages" width="200"/>
 </p>
 
-<p align="center">
-  <strong>
-    <a href="#english">English</a>
-    &nbsp;&nbsp;|&nbsp;&nbsp;
-    <a href="#español">Español</a>
-  </strong>
-</p>
+<h3>
+  <a href="#english">English</a> | <a href="#español">Español</a>
+</h3>
 
 <br>
 
@@ -50,7 +46,31 @@
 
 EasyPages is a self-hosted dashboard for managing Cloudflare Pages projects from your own server.
 
-> **Typical install (no git clone):** use the published **GHCR image** with `docker-compose.yml` and `.env` downloaded from this repo's raw URLs — see [Quick install with Docker](#quick-install-with-docker).
+<a id="docker-install-recommended"></a>
+
+## Docker install (recommended)
+
+**You need:** Docker Compose and a Cloudflare API token that can edit Pages ([how to create it](#cloudflare-token-permissions)).
+
+1. Create a folder and download [`docker-compose.yml`](https://raw.githubusercontent.com/Kernel-Nomad/EasyPages/main/docker-compose.yml) and [`.env.example`](https://raw.githubusercontent.com/Kernel-Nomad/EasyPages/main/.env.example) (branch `main`, or pin a [release tag](https://github.com/Kernel-Nomad/EasyPages/releases) in the URLs).
+2. Copy to `.env` and set **`CF_API_TOKEN`**, **`CF_ACCOUNT_ID`**, **`AUTH_USER`**, **`AUTH_PASS`**. **Strongly recommended:** set **`SESSION_SECRET`** (e.g. `openssl rand -hex 32`) so sessions survive restarts — see [`.env.example`](.env.example).
+3. Start: `docker compose up -d --pull always`
+4. Open [http://localhost:8002](http://localhost:8002)
+
+```bash
+mkdir easypages && cd easypages
+curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/Kernel-Nomad/EasyPages/main/docker-compose.yml
+curl -fsSL -o .env.example https://raw.githubusercontent.com/Kernel-Nomad/EasyPages/main/.env.example
+cp .env.example .env
+# Edit .env — at minimum the four variables above
+docker compose up -d --pull always
+```
+
+No git clone required. **Login over HTTP:** [`.env.example`](.env.example) sets `SESSION_COOKIE_SECURE=false`. If you terminate **HTTPS** in front of the container, set `SESSION_COOKIE_SECURE=true`. Session data is stored in a **signed cookie** (`easypages_sid`), not in a server-side session folder.
+
+**From a git clone:** use the root [`docker-compose.yml`](docker-compose.yml) and [`.env.example`](.env.example) instead of `curl`.
+
+More variables: [`.env.example`](.env.example). Compose ships a pinned GHCR image, `./easypages-data:/data`, and a healthcheck on `/login`. Releases and image tags: [CONTRIBUTING.md](CONTRIBUTING.md#releases-docker-image-and-compose).
 
 ## What it does
 
@@ -64,8 +84,10 @@ EasyPages is a self-hosted dashboard for managing Cloudflare Pages projects from
 
 ## Requirements
 
-- Docker + Docker Compose, or a local Node.js environment.
-- A Cloudflare account with an API token that can edit Pages projects.
+- **Docker path:** Docker and Docker Compose.
+- **From source:** Node.js **24** or newer — see [For developers](#for-developers).
+
+You also need a Cloudflare account and an API token with Pages access (below).
 
 ### Cloudflare token permissions
 
@@ -75,32 +97,13 @@ Create a custom Cloudflare API token with:
 
 Token creation page: [Cloudflare Dashboard > My Profile > API Tokens](https://dash.cloudflare.com/profile/api-tokens)
 
-## Quick install with Docker
+---
 
-**Who this is for:** Most people run EasyPages from the **published container image** plus two local files: `docker-compose.yml` and `.env`. You do **not** need to clone the repository. The source tree is for development, customization, or security review.
+## For developers
 
-**Required in `.env`:** `CF_API_TOKEN`, `CF_ACCOUNT_ID`, `AUTH_USER`, `AUTH_PASS`.
+### Local development
 
-Run in a new folder (default branch `main`; pin a [release tag](https://github.com/Kernel-Nomad/EasyPages/releases) in the URLs if you prefer):
-
-```bash
-mkdir easypages && cd easypages
-curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/Kernel-Nomad/EasyPages/main/docker-compose.yml
-curl -fsSL -o .env.example https://raw.githubusercontent.com/Kernel-Nomad/EasyPages/main/.env.example
-cp .env.example .env
-# Edit .env: set CF_API_TOKEN, CF_ACCOUNT_ID, AUTH_USER, AUTH_PASS
-docker compose up -d --pull always
-```
-
-Open [http://localhost:8002](http://localhost:8002).
-
-The Compose file pins the image to a release tag on GHCR, sets `EASYPAGES_DATA_DIR` for one data volume, and includes a healthcheck (healthy when `/login` responds). Optional variables are listed in [`.env.example`](.env.example). With this setup, the data volume persists sessions and `.session_secret`, so you usually omit `SESSION_SECRET`. For other production setups without that directory, set `SESSION_SECRET` (see Notes below). Edge cases and older image tags: [CONTRIBUTING.md](CONTRIBUTING.md#releases-docker-image-and-compose).
-
-**Alternative: install from a git clone**
-
-If you already have the repo, use the same steps with the bundled [`docker-compose.yml`](docker-compose.yml) and [`.env.example`](.env.example) in the repository root instead of downloading the raw files.
-
-## Local development
+Use **Node.js 24+** (same major as the Docker image and release CI). With [nvm](https://github.com/nvm-sh/nvm), run `nvm use` in the repo root (see [`.nvmrc`](.nvmrc)).
 
 Install dependencies:
 
@@ -108,38 +111,30 @@ Install dependencies:
 npm install
 ```
 
-Create `.env` from the values above or from `.env.example`.
+Create `.env` from [`.env.example`](.env.example).
 
-For a production-like local run, build the UI and start the server:
+For a production-like local run:
 
 ```bash
 npm run build
 npm run start
 ```
 
-`npm run start` and `npm run dev` execute the canonical entrypoint at `src/index.js`. `server.js` remains available as a public compatibility shim for external tooling or manual invocations that still expect the repository-root entrypoint.
+`npm run start` and `npm run dev` use `src/index.js`. `server.js` is a compatibility shim for tools that expect a root entrypoint.
 
-For active development:
+Active development:
 
-- `npm run dev` starts the Express server in watch mode on port `8002`.
-- `npm run dev:ui` starts Vite on port `5173` and proxies `/api`, `/login` and `/logout` to `http://localhost:8002`.
-
-Validation commands:
+- `npm run dev` — Express on port `8002` (watch).
+- `npm run dev:ui` — Vite on `5173`, proxies `/api`, `/login`, `/logout` to `http://localhost:8002`.
 
 ```bash
 npm test
 npm run check
 ```
 
-Notes:
+### Technical details
 
-- The server serves files from `dist/`, so `npm run build` is required before `npm run start`.
-- With `NODE_ENV=production`, set `SESSION_SECRET` unless you use `EASYPAGES_DATA_DIR` with a persistent volume (as in the bundled Docker Compose): then the app can create or reuse `.session_secret` under that directory. The GHCR image sets `NODE_ENV=production`. In development, if `SESSION_SECRET` is omitted, the server may generate and persist `.session_secret` in the repo root (warnings are logged if the file cannot be read or written).
-- Session cookies use the `Secure` flag when `NODE_ENV=production` (HTTPS behind a reverse proxy with `trust proxy` enabled). Override with `SESSION_COOKIE_SECURE=true|false` if you must serve over plain HTTP in a production-marked environment.
-- Sessions are stored on disk (`session-file-store` under `./sessions` by default, or under `<EASYPAGES_DATA_DIR>/sessions` when that variable is set). That fits a **single Node process**. If you run **multiple replicas** or processes behind a load balancer without sticky sessions, use one instance per deployment or switch to a shared session store (Redis, database, etc.); otherwise users will lose sessions unpredictably.
-- Static UI files under `dist/` (`index.html`, `/assets/*`, etc.) are only served to **authenticated** browsers; login still loads `/login.css` and `/login-error.js` without a session.
-
-For a full directory map of this repository (contributors), see [CONTRIBUTING.md — Repository layout](CONTRIBUTING.md#repository-layout).
+Signed session cookie, `SESSION_SECRET`, cookies, replicas, and how `dist/` is served: [CONTRIBUTING.md — Runtime notes](CONTRIBUTING.md#runtime-notes-dist-sessions-scaling). Repository layout: [CONTRIBUTING.md — Repository layout](CONTRIBUTING.md#repository-layout).
 
 ---
 
@@ -149,7 +144,15 @@ For a full directory map of this repository (contributors), see [CONTRIBUTING.md
 
 EasyPages es un panel self-hosted para gestionar proyectos de Cloudflare Pages desde tu propio servidor.
 
-> **Instalación habitual (sin clonar):** usa la imagen publicada en **GHCR** con `docker-compose.yml` y `.env` descargados desde las URLs raw de este repo — véase [Instalación rápida con Docker](#docker-install-es).
+<a id="docker-install-es"></a>
+
+## Instalación con Docker (recomendado)
+
+Usa la lista numerada y el bloque `bash` de **[Docker install (recommended)](#docker-install-recommended)** (misma carpeta, `curl`, `cp .env.example .env`, rellena las variables obligatorias y, en producción, **`SESSION_SECRET`**, `docker compose up -d --pull always`, luego [http://localhost:8002](http://localhost:8002)).
+
+**HTTP / HTTPS y `SESSION_COOKIE_SECURE`:** igual que en la sección en inglés y en [`.env.example`](.env.example).
+
+**Con el repo clonado:** [`docker-compose.yml`](docker-compose.yml) y [`.env.example`](.env.example) en la raíz en lugar de `curl`. Más variables e imágenes GHCR: [`.env.example`](.env.example) y [CONTRIBUTING.md](CONTRIBUTING.md#releases-docker-image-and-compose).
 
 ## Qué hace
 
@@ -163,8 +166,10 @@ EasyPages es un panel self-hosted para gestionar proyectos de Cloudflare Pages d
 
 ## Requisitos
 
-- Docker y Docker Compose, o un entorno local con Node.js.
-- Una cuenta de Cloudflare con un token API que pueda editar proyectos de Pages.
+- **Con Docker:** Docker y Docker Compose.
+- **Desde código:** Node.js **24** o superior — ver [Para desarrolladores](#para-desarrolladores).
+
+Cuenta de Cloudflare y token con permisos de Pages (siguiente apartado).
 
 ### Permisos del token de Cloudflare
 
@@ -174,70 +179,34 @@ Crea un token personalizado con:
 
 Página de creación: [Cloudflare Dashboard > Mi Perfil > API Tokens](https://dash.cloudflare.com/profile/api-tokens)
 
-<a id="docker-install-es"></a>
+---
 
-## Instalación rápida con Docker
+## Para desarrolladores
 
-**Para quién es:** La forma habitual de usar EasyPages es la **imagen publicada en el registro** más dos archivos en tu máquina: `docker-compose.yml` y `.env`. **No hace falta clonar el repositorio.** El código fuente sirve para desarrollo, personalización o auditoría.
+### Desarrollo local
 
-**Obligatorio en `.env`:** `CF_API_TOKEN`, `CF_ACCOUNT_ID`, `AUTH_USER`, `AUTH_PASS`.
-
-Ejecuta en una carpeta nueva (rama por defecto `main`; puedes fijar un [tag de release](https://github.com/Kernel-Nomad/EasyPages/releases) en las URLs si lo prefieres):
-
-```bash
-mkdir easypages && cd easypages
-curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/Kernel-Nomad/EasyPages/main/docker-compose.yml
-curl -fsSL -o .env.example https://raw.githubusercontent.com/Kernel-Nomad/EasyPages/main/.env.example
-cp .env.example .env
-# Edita .env: CF_API_TOKEN, CF_ACCOUNT_ID, AUTH_USER, AUTH_PASS
-docker compose up -d --pull always
-```
-
-Abre [http://localhost:8002](http://localhost:8002).
-
-El `docker-compose.yml` fija la imagen a un tag en GHCR, define `EASYPAGES_DATA_DIR` y un volumen de datos, e incluye un healthcheck (listo cuando responde `/login`). Variables opcionales: [`.env.example`](.env.example). Con este volumen persisten sesiones y `.session_secret`, así que normalmente puedes omitir `SESSION_SECRET`. Sin ese directorio de datos en producción, define `SESSION_SECRET` (véase Notas). Casos límite e imágenes antiguas: [CONTRIBUTING.md](CONTRIBUTING.md#releases-docker-image-and-compose).
-
-**Alternativa: desde un clon del repositorio**
-
-Si ya tienes el repo, usa los mismos pasos con el [`docker-compose.yml`](docker-compose.yml) y [`.env.example`](.env.example) de la raíz del proyecto en lugar de descargar los archivos en bruto.
-
-## Desarrollo local
-
-Instala dependencias:
+Usa **Node.js 24+** (misma major que la imagen Docker y el CI de releases). Con [nvm](https://github.com/nvm-sh/nvm), ejecuta `nvm use` en la raíz del repo (ver [`.nvmrc`](.nvmrc)).
 
 ```bash
 npm install
 ```
 
-Crea `.env` con los valores anteriores o a partir de `.env.example`.
-
-Para una ejecución local similar a producción, genera la UI y arranca el servidor:
+Crea `.env` desde [`.env.example`](.env.example). Ejecución parecida a producción:
 
 ```bash
 npm run build
 npm run start
 ```
 
-`npm run start` y `npm run dev` ejecutan el entrypoint canónico `src/index.js`. `server.js` se conserva como shim público de compatibilidad para tooling externo o invocaciones manuales que sigan esperando un entrypoint en la raíz.
+`npm run start` y `npm run dev` usan `src/index.js`. `server.js` es un shim de compatibilidad en la raíz.
 
-Para desarrollo activo:
-
-- `npm run dev` arranca el servidor Express en modo watch sobre el puerto `8002`.
-- `npm run dev:ui` arranca Vite en el puerto `5173` y hace proxy de `/api`, `/login` y `/logout` hacia `http://localhost:8002`.
-
-Comandos de validación:
+Desarrollo activo: `npm run dev` (Express en `8002`) y `npm run dev:ui` (Vite en `5173`, proxy a `http://localhost:8002`).
 
 ```bash
 npm test
 npm run check
 ```
 
-Notas:
+### Detalles técnicos
 
-- El servidor sirve archivos desde `dist/`, así que `npm run build` es necesario antes de `npm run start`.
-- Con `NODE_ENV=production`, define `SESSION_SECRET` salvo que uses `EASYPAGES_DATA_DIR` con un volumen persistente (como en el Docker Compose del repo): entonces la app puede crear o reutilizar `.session_secret` en ese directorio. La imagen en GHCR define `NODE_ENV=production`. En desarrollo, si omites `SESSION_SECRET`, el servidor puede generar y persistir `.session_secret` en la raíz del repo (se registran avisos si no se puede leer o escribir el archivo).
-- La cookie de sesión usa el flag `Secure` cuando `NODE_ENV=production` (HTTPS detrás de proxy con `trust proxy`). Puedes forzar el comportamiento con `SESSION_COOKIE_SECURE=true|false` si necesitas HTTP plano en un entorno marcado como production.
-- Las sesiones se guardan en disco (`session-file-store` en `./sessions` por defecto, o en `<EASYPAGES_DATA_DIR>/sessions` si está definida la variable). Está pensado para **un solo proceso Node**. Si ejecutas **varias réplicas** o procesos detrás de un balanceador sin sticky sessions, usa una instancia por despliegue o un almacén de sesión compartido (Redis, base de datos, etc.); si no, los usuarios perderán la sesión de forma impredecible.
-- Los estáticos de la UI en `dist/` (`index.html`, `/assets/*`, etc.) solo se sirven a navegadores **autenticados**; la pantalla de login sigue pudiendo cargar `/login.css` y `/login-error.js` sin sesión.
-
-Mapa detallado del árbol del repositorio (contribuidores): [CONTRIBUTING.md — Repository layout](CONTRIBUTING.md#repository-layout).
+Cookie de sesión firmada, `SESSION_SECRET`, cookies, réplicas y estáticos: [CONTRIBUTING.md — Runtime notes](CONTRIBUTING.md#runtime-notes-dist-sessions-scaling) (en inglés). Estructura del repo: [CONTRIBUTING.md — Repository layout](CONTRIBUTING.md#repository-layout).
