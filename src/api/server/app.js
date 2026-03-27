@@ -2,6 +2,7 @@ import cookieSession from 'cookie-session';
 import express from 'express';
 import helmet from 'helmet';
 import path from 'path';
+import rateLimit from 'express-rate-limit';
 import { createUploadMiddleware } from '../../config/upload.js';
 import {
   AUTH_PASS,
@@ -59,6 +60,13 @@ export const createApp = (options = {}) => {
       accountId: CF_ACCOUNT_ID,
     });
 
+  const uiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
   const app = express();
 
   app.set('trust proxy', 1);
@@ -106,7 +114,7 @@ export const createApp = (options = {}) => {
   app.use('/api', createDomainsRouter({ cloudflare }));
   app.use('/api', createApiNotFoundHandler());
 
-  app.get('*', requireAuth, (req, res) => {
+  app.get('*', requireAuth, uiLimiter, (req, res) => {
     res.sendFile(path.join(distDir, 'index.html'));
   });
 
