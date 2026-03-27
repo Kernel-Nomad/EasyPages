@@ -28,26 +28,45 @@ export const resolveCookieSessionSecret = (sessionSecretFromEnv) => {
 };
 
 export const safeUnlink = (filePath, uploadsDir) => {
-  if (!filePath) {
+  if (!filePath || !uploadsDir) {
     return;
   }
 
   try {
-    const normalizedPath = path.resolve(filePath);
-    if (isPathInsideDirectory(normalizedPath, uploadsDir) && fs.existsSync(normalizedPath)) {
-      fs.unlinkSync(normalizedPath);
+    // Resolve the real path of the target file to avoid symlink-based escapes.
+    const resolvedFilePath = fs.realpathSync.native
+      ? fs.realpathSync.native(filePath)
+      : fs.realpathSync(filePath);
+
+    if (isPathInsideDirectory(resolvedFilePath, uploadsDir) && fs.existsSync(resolvedFilePath)) {
+      fs.unlinkSync(resolvedFilePath);
     }
   } catch (error) {
+    // realpathSync or unlinkSync may throw; log and continue without leaking details to the client.
     console.error('Error al eliminar archivo temporal:', error);
   }
 };
 
 export const isPathInsideDirectory = (targetPath, directoryPath) => {
-  const normalizedDirectory = path.resolve(directoryPath);
-  const normalizedTarget = path.resolve(targetPath);
-  const relativePath = path.relative(normalizedDirectory, normalizedTarget);
+  try {
+    const realDirectory = fs.realpathSync.native
+      ? fs.realpathSync.native(directoryPath)
+      : fs.realpathSync(directoryPath);
+    const realTarget = fs.realpathSync.native
+      ? fs.realpathSync.native(targetPath)
+      : fs.realpathSync(targetPath);
 
-  return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
+    const relativePath = path.relative(realDirectory, realTarget);
+
+    return (
+      relativePath === '' ||
+      (!relativePath.startsWith('..') && !path.isAbsolute(relativePath))
+    );
+  } catch {
+    // If either path cannot be resolved (for example, target does not exist),
+    // treat it as being outside the directory.
+    return false;
+  }
 };
 
 export const getMimeType = (filename) => {
