@@ -7,9 +7,10 @@ updates:
       day: "monday"
       time: "09:00"
     open-pull-requests-limit: 10
+    # Evita PRs de major en el grupo agrupado (misma intención que ignorar major en dependencias npm).
     ignore:
-      - dependency-group: "dependencies"
-        update-types: ["version-update:semver-major"] # Ignore major version updates for dependencies (Vite, esbuild, etc.)
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       dependencies:
         patterns:
