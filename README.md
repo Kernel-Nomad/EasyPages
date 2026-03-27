@@ -54,11 +54,6 @@ EasyPages is a self-hosted dashboard for managing Cloudflare Pages projects from
 
 **You need:** Docker Compose and a Cloudflare API token that can edit Pages ([how to create it](#cloudflare-token-permissions)).
 
-1. Create a folder and download [`docker-compose.yml`](https://raw.githubusercontent.com/Kernel-Nomad/EasyPages/main/docker-compose.yml) and [`.env.example`](https://raw.githubusercontent.com/Kernel-Nomad/EasyPages/main/.env.example) (branch `main`, or pin a [release tag](https://github.com/Kernel-Nomad/EasyPages/releases) in the URLs).
-2. Copy to `.env` and set **`CF_API_TOKEN`**, **`CF_ACCOUNT_ID`**, **`AUTH_USER`**, and **`AUTH_PASS`**. **`AUTH_PASS`** should be a **bcrypt hash** of your dashboard password for anything beyond a casual homelab (plain text is accepted if the value is not a bcrypt-shaped string — weaker if `.env` leaks). After `npm install`, generate a hash with: `node -e "import('bcrypt').then(({default:b})=>console.log(b.hashSync('YOUR_PASSWORD',10)))"`. [`.env.example`](.env.example) ships a **demo-only** hash whose password is documented there — replace it in production. **Sessions:** with the default Compose volume on `/data`, the server stores a signing key in **`.easypages-session-secret`** there so logins survive container restarts without extra env vars. Override with **`SESSION_SECRET`** only if you need to (see [`.env.example`](.env.example)).
-3. Start: `docker compose up -d --pull always`
-4. Open [http://localhost:8002](http://localhost:8002)
-
 ```bash
 mkdir easypages && cd easypages
 curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/Kernel-Nomad/EasyPages/main/docker-compose.yml
@@ -115,7 +110,7 @@ Install dependencies:
 npm install
 ```
 
-Create `.env` from [`.env.example`](.env.example). Set **`AUTH_PASS`** to a **bcrypt hash** of your password (same command as in the Docker step above), or plain text for a minimal homelab setup.
+Create `.env` from [`.env.example`](.env.example). Set **`AUTH_PASS`** to a **bcrypt hash** of your password, or plain text for a minimal homelab setup (the server only treats values that look like bcrypt hashes as hashes).
 
 For a production-like local run:
 
@@ -152,13 +147,24 @@ EasyPages es un panel self-hosted para gestionar proyectos de Cloudflare Pages d
 
 ## Instalación con Docker (recomendado)
 
-Usa la lista numerada y el bloque `bash` de **[Docker install (recommended)](#docker-install-recommended)** (misma carpeta, `curl`, `cp .env.example .env`, rellena las variables obligatorias, `docker compose up -d --pull always`, luego [http://localhost:8002](http://localhost:8002)). **`AUTH_PASS`**: lo recomendable es un **hash bcrypt**; en homelab puedes poner la contraseña en **texto plano** si no parece un hash bcrypt (más débil si filtra el `.env`). El README en inglés y [`.env.example`](.env.example) explican cómo generar el hash. Las sesiones persisten tras reinicios gracias al volumen en `/data` y al archivo **`.easypages-session-secret`** (opcional **`SESSION_SECRET`** en [`.env.example`](.env.example)).
+**Necesitas:** Docker Compose y un token de API de Cloudflare con permiso para editar Pages ([cómo crearlo](#permisos-del-token-de-cloudflare)).
 
-**HTTP / HTTPS y `SESSION_COOKIE_SECURE`:** igual que en la sección en inglés y en [`.env.example`](.env.example).
+```bash
+mkdir easypages && cd easypages
+curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/Kernel-Nomad/EasyPages/main/docker-compose.yml
+curl -fsSL -o .env.example https://raw.githubusercontent.com/Kernel-Nomad/EasyPages/main/.env.example
+cp .env.example .env
+# Edita .env — como mínimo las cuatro variables de la plantilla
+docker compose up -d --pull always
+```
 
-**Proxy inverso y `TRUST_PROXY`:** por defecto se confía en un salto; si el proceso Node está expuesto **sin** un proxy de confianza, define **`TRUST_PROXY=false`** — [notas de runtime en CONTRIBUTING.md](CONTRIBUTING.md#runtime-notes-dist-sessions-scaling).
+No hace falta clonar el repositorio. **Acceso por HTTP:** [`.env.example`](.env.example) deja `SESSION_COOKIE_SECURE=false`. Si terminas **HTTPS** delante del contenedor, pon `SESSION_COOKIE_SECURE=true`. Los datos de sesión van en una **cookie firmada** (`easypages_sid`), no en una carpeta de sesión en el servidor.
 
-**Con el repo clonado:** [`docker-compose.yml`](docker-compose.yml) y [`.env.example`](.env.example) en la raíz en lugar de `curl`. Más variables e imágenes GHCR: [`.env.example`](.env.example) y [CONTRIBUTING.md](CONTRIBUTING.md#releases-docker-image-and-compose).
+Con un **proxy inverso**, mantén el valor por defecto de **`TRUST_PROXY`** (un salto de confianza para cabeceras reenviadas y límites de peticiones). Si el proceso Node es alcanzable **sin** un proxy de confianza delante, define **`TRUST_PROXY=false`** — véanse las [notas de runtime en CONTRIBUTING.md](CONTRIBUTING.md#runtime-notes-dist-sessions-scaling).
+
+**Con el repo clonado:** usa el [`docker-compose.yml`](docker-compose.yml) y [`.env.example`](.env.example) de la raíz en lugar de `curl`.
+
+Más variables: [`.env.example`](.env.example). El Compose incluye una imagen fijada en GHCR, `./easypages-data:/data` y un healthcheck en `/login`. Releases y etiquetas de imagen: [CONTRIBUTING.md](CONTRIBUTING.md#releases-docker-image-and-compose).
 
 ## Qué hace
 
@@ -175,15 +181,15 @@ Usa la lista numerada y el bloque `bash` de **[Docker install (recommended)](#do
 - **Con Docker:** Docker y Docker Compose.
 - **Desde código:** Node.js **24** o superior — ver [Para desarrolladores](#para-desarrolladores).
 
-Cuenta de Cloudflare y token con permisos de Pages (siguiente apartado).
+También necesitas una cuenta de Cloudflare y un token de API con acceso a Pages (apartado siguiente).
 
 ### Permisos del token de Cloudflare
 
-Crea un token personalizado con:
+Crea un token personalizado de API con:
 
 - `Account` → `Cloudflare Pages` → `Edit`
 
-Página de creación: [Cloudflare Dashboard > Mi Perfil > API Tokens](https://dash.cloudflare.com/profile/api-tokens)
+Página de creación: [Cloudflare Dashboard > My Profile > API Tokens](https://dash.cloudflare.com/profile/api-tokens)
 
 ---
 
@@ -191,22 +197,29 @@ Página de creación: [Cloudflare Dashboard > Mi Perfil > API Tokens](https://da
 
 ### Desarrollo local
 
-Usa **Node.js 24+** (misma major que la imagen Docker y el CI de releases). Con [nvm](https://github.com/nvm-sh/nvm), ejecuta `nvm use` en la raíz del repo (ver [`.nvmrc`](.nvmrc)).
+Usa **Node.js 24+** (la misma major que la imagen Docker y el CI de releases). Con [nvm](https://github.com/nvm-sh/nvm), ejecuta `nvm use` en la raíz del repo (ver [`.nvmrc`](.nvmrc)).
+
+Instala dependencias:
 
 ```bash
 npm install
 ```
 
-Crea `.env` desde [`.env.example`](.env.example). **`AUTH_PASS`**: hash bcrypt (igual que en Docker) o texto plano en homelab. Ejecución parecida a producción:
+Crea `.env` desde [`.env.example`](.env.example). Configura **`AUTH_PASS`** con un **hash bcrypt** de tu contraseña, o texto plano en un homelab mínimo (el servidor solo interpreta bcrypt si el valor tiene forma de hash bcrypt).
+
+Para una ejecución local parecida a producción:
 
 ```bash
 npm run build
 npm run start
 ```
 
-`npm run start` y `npm run dev` usan `src/index.js`. `server.js` es un shim de compatibilidad en la raíz.
+`npm run start` y `npm run dev` usan `src/index.js`. `server.js` es un shim de compatibilidad para herramientas que esperan un entrypoint en la raíz.
 
-Desarrollo activo: `npm run dev` (Express en `8002`) y `npm run dev:ui` (Vite en `5173`, proxy a `http://localhost:8002`).
+Desarrollo activo:
+
+- `npm run dev` — Express en el puerto `8002` (watch).
+- `npm run dev:ui` — Vite en `5173`, hace proxy de `/api`, `/login`, `/logout` a `http://localhost:8002`.
 
 ```bash
 npm test
@@ -215,4 +228,4 @@ npm run check
 
 ### Detalles técnicos
 
-Cookie de sesión firmada, origen de la clave de firma, réplicas y estáticos: [CONTRIBUTING.md — Runtime notes](CONTRIBUTING.md#runtime-notes-dist-sessions-scaling) (en inglés). Estructura del repo: [CONTRIBUTING.md — Repository layout](CONTRIBUTING.md#repository-layout).
+Cookie de sesión firmada, origen de la clave de firma (archivo bajo `EASYPAGES_DATA_DIR` frente a `SESSION_SECRET`), réplicas y cómo se sirve `dist/`: [CONTRIBUTING.md — Runtime notes](CONTRIBUTING.md#runtime-notes-dist-sessions-scaling). Estructura del repositorio: [CONTRIBUTING.md — Repository layout](CONTRIBUTING.md#repository-layout).
