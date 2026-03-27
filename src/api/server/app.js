@@ -106,7 +106,7 @@ export const createApp = (options = {}) => {
     loginHtmlPath,
   }));
 
-  app.use(createDistStatic({ distDir, requireAuth }));
+  app.use(uiLimiter, createDistStatic({ distDir, requireAuth }));
 
   app.use('/api', requireAuth, csrfProtection);
   app.use('/api', createProjectsRouter({ cloudflare, createProjectLimiter }));
