@@ -1,11 +1,17 @@
 import crypto from 'crypto';
 import express from 'express';
 import fs from 'fs';
+import bcrypt from 'bcrypt';
 
-const digestUtf8Equal = (a, b) => {
-  const da = crypto.createHash('sha256').update(String(a), 'utf8').digest();
-  const db = crypto.createHash('sha256').update(String(b), 'utf8').digest();
-  return crypto.timingSafeEqual(da, db);
+const verifyPassword = (plainPassword, hashedPassword) => {
+  if (typeof plainPassword !== 'string' || typeof hashedPassword !== 'string') {
+    return false;
+  }
+  try {
+    return bcrypt.compareSync(plainPassword, hashedPassword);
+  } catch {
+    return false;
+  }
 };
 
 const escapeHtmlAttr = (value) =>
@@ -52,7 +58,7 @@ export const createAuthRouter = ({
   router.post('/login', loginLimiter, csrfProtection, (req, res) => {
     const { username, password } = req.body;
 
-    if (digestUtf8Equal(username, authUser) && digestUtf8Equal(password, authPass)) {
+    if (username === authUser && verifyPassword(password, authPass)) {
       req.session = { authenticated: true, user: username };
       return res.redirect('/');
     }
