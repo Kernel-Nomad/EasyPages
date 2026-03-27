@@ -10,7 +10,7 @@ export const logServerError = (req, err, contextLabel = '') => {
   const label = contextLabel ? ` (${contextLabel})` : '';
   const message = err instanceof Error ? err.message : String(err);
   const stack = err instanceof Error ? err.stack : undefined;
-  console.error(`[EasyPages] Error del servidor${label} ${method} ${url}`, message);
+  console.error(`[EasyPages] Error del servidor${label} ${method} ${url} ${message}`);
   if (stack) {
     console.error(stack);
   }
