@@ -11,19 +11,19 @@
 <br>
 
 <p align="center">
-  <a href="https://github.com/Kernel-Nomad/EasyPages/stargazers">
-    <img src="https://img.shields.io/github/stars/Kernel-Nomad/EasyPages?style=social" alt="GitHub stars"/>
+  <a href="https://github.com/KN990x/EasyPages/stargazers">
+    <img src="https://img.shields.io/github/stars/KN990x/EasyPages?style=social" alt="GitHub stars"/>
   </a>
   &nbsp;
-  <a href="https://github.com/Kernel-Nomad/EasyPages/issues">
-    <img src="https://img.shields.io/github/issues/Kernel-Nomad/EasyPages" alt="GitHub issues"/>
+  <a href="https://github.com/KN990x/EasyPages/issues">
+    <img src="https://img.shields.io/github/issues/KN990x/EasyPages" alt="GitHub issues"/>
   </a>
   &nbsp;
   <a href="./LICENSE">
-    <img src="https://img.shields.io/github/license/Kernel-Nomad/EasyPages" alt="License"/>
+    <img src="https://img.shields.io/github/license/KN990x/EasyPages" alt="License"/>
   </a>
   &nbsp;
-  <img src="https://img.shields.io/github/last-commit/Kernel-Nomad/EasyPages" alt="Last commit"/>
+  <img src="https://img.shields.io/github/last-commit/KN990x/EasyPages" alt="Last commit"/>
 </p>
 
 <p align="center">
@@ -56,8 +56,8 @@ EasyPages is a self-hosted dashboard for managing Cloudflare Pages projects from
 
 ```bash
 mkdir easypages && cd easypages
-curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/Kernel-Nomad/EasyPages/main/docker-compose.yml
-curl -fsSL -o .env.example https://raw.githubusercontent.com/Kernel-Nomad/EasyPages/main/.env.example
+curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/KN990x/EasyPages/main/docker-compose.yml
+curl -fsSL -o .env.example https://raw.githubusercontent.com/KN990x/EasyPages/main/.env.example
 cp .env.example .env
 # Edit .env — at minimum the four variables above
 docker compose up -d --pull always
@@ -151,8 +151,8 @@ EasyPages es un panel self-hosted para gestionar proyectos de Cloudflare Pages d
 
 ```bash
 mkdir easypages && cd easypages
-curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/Kernel-Nomad/EasyPages/main/docker-compose.yml
-curl -fsSL -o .env.example https://raw.githubusercontent.com/Kernel-Nomad/EasyPages/main/.env.example
+curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/KN990x/EasyPages/main/docker-compose.yml
+curl -fsSL -o .env.example https://raw.githubusercontent.com/KN990x/EasyPages/main/.env.example
 cp .env.example .env
 # Edita .env — como mínimo las cuatro variables de la plantilla
 docker compose up -d --pull always
