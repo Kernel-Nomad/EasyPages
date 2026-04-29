@@ -8,7 +8,7 @@ const Footer = () => {
     <footer className="bg-white border-t border-gray-200 mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="text-gray-400 text-sm font-medium text-center md:text-left order-2 md:order-1">
-          <p>&copy; {new Date().getFullYear()} <span className="text-gray-600 font-semibold">KN</span></p>
+          <p>&copy; {new Date().getFullYear()} <span className="text-gray-600 font-semibold">KN990x</span></p>
         </div>
 
         <div className="flex flex-row flex-wrap justify-center items-center gap-4 md:gap-6 order-1 md:order-2">
