@@ -101,7 +101,7 @@ const resources = {
       upload_zip_only: 'Solo se permiten archivos .zip.',
       upload_error_msg: 'Error al subir archivos. Verifica tu ZIP.',
 
-      tip_me: 'Tip me',
+      tip_me: 'Invítame un café',
     },
   },
   en: {
@@ -202,7 +202,7 @@ const resources = {
       upload_zip_only: 'Only .zip files are allowed.',
       upload_error_msg: 'Error uploading files. Check your ZIP.',
 
-      tip_me: 'Tip me',
+      tip_me: 'Buy me a coffee',
     },
   },
 };
