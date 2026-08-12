@@ -12,6 +12,11 @@ updates:
     # ago is exactly the one a malicious publish is caught in.
     cooldown:
       default-days: 7
+    # Version majors stay a human decision (Express 5, Tailwind 4, Vitest 4, …). This ignore
+    # applies only to version updates — Dependabot security updates still open even for majors.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       # Security fixes get their own group with no version filter. Previously a single
       # blanket `ignore` on majors also silenced security majors, which is the one case
