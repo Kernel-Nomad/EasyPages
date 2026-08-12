@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM node:24-alpine AS build
+FROM node:26-alpine AS build
 # corepack installs exactly the pnpm pinned by `packageManager`, so the image, CI and local
 # development all agree on one version.
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
@@ -15,7 +15,7 @@ RUN --mount=type=cache,target=/pnpm-store \
 COPY . .
 RUN pnpm run build
 
-FROM node:24-alpine
+FROM node:26-alpine
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable
 WORKDIR /app
