@@ -51,13 +51,13 @@ export const createDeploymentsRouter = ({
         sendErrorResponse(
           res,
           createHttpError(413, 'The ZIP file exceeds the maximum allowed size.'),
-          'Error al procesar el archivo subido',
+          'Failed to process the uploaded file',
           req,
         );
         return;
       }
 
-      sendErrorResponse(res, error, 'Error al procesar el archivo subido', req);
+      sendErrorResponse(res, error, 'Failed to process the uploaded file', req);
     });
   };
 
@@ -71,7 +71,7 @@ export const createDeploymentsRouter = ({
       const deployments = await deploymentsService.listDeployments(toProjectInput(req));
       res.json(deployments);
     } catch (error) {
-      sendErrorResponse(res, error, 'Error al cargar los despliegues', req);
+      sendErrorResponse(res, error, 'Failed to load deployments', req);
     }
   });
 
@@ -85,7 +85,7 @@ export const createDeploymentsRouter = ({
       const deployment = await deploymentsService.triggerDeployment(toProjectInput(req));
       res.json(deployment);
     } catch (error) {
-      sendErrorResponse(res, error, 'Error al disparar el despliegue', req);
+      sendErrorResponse(res, error, 'Failed to trigger deployment', req);
     }
   });
 
@@ -99,7 +99,7 @@ export const createDeploymentsRouter = ({
       const candidates = await deploymentsService.getDeleteCandidates(toProjectInput(req));
       res.json(candidates);
     } catch (error) {
-      sendErrorResponse(res, error, 'Error obteniendo lista de borrado', req);
+      sendErrorResponse(res, error, 'Failed to load deletion candidates', req);
     }
   });
 
@@ -130,7 +130,7 @@ export const createDeploymentsRouter = ({
     if (req.file) {
       const normalizedUploadPath = path.resolve(req.file.path);
       if (!isPathInsideDirectory(normalizedUploadPath, uploadsDir)) {
-        console.error('ALERTA DE SEGURIDAD: intento de path traversal en upload:', req.file.path);
+        console.error('SECURITY: path traversal attempt in upload:', req.file.path);
         cleanupUploadFile(req.file, uploadsDir);
         return res.status(403).json({ error: 'Invalid file path.' });
       }
@@ -155,7 +155,7 @@ export const createDeploymentsRouter = ({
       res.json(result);
     } catch (error) {
       cleanupUploadFile(req.file, uploadsDir);
-      sendErrorResponse(res, error, 'Error al procesar el despliegue en Cloudflare', req);
+      sendErrorResponse(res, error, 'Failed to process the Cloudflare deployment', req);
     }
   });
 

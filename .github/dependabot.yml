@@ -47,3 +47,8 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "09:00"
+    # Node major stays a deliberate migration (.nvmrc, Dockerfile, engines, docs). Security
+    # patches within the 24 line still arrive as minor/patch tag moves on node:24-alpine.
+    ignore:
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]

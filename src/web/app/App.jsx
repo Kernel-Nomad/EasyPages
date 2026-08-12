@@ -66,8 +66,8 @@ export default function App() {
   });
 
   // Gated on `ready`: unconditional, these calls fired on a fresh install and 401'd before
-  // the wizard had been drawn. `loadProjects` is deliberately not a dependency: it is
-  // recreated on every render, so depending on it would refetch in a loop.
+  // the wizard had been drawn. `loadProjects`/`t` are deliberately omitted: loadProjects is
+  // recreated every render and would refetch in a loop.
   useEffect(() => {
     if (authState !== 'ready') {
       return;
@@ -78,6 +78,7 @@ export default function App() {
         showNotification('error', error.message || t('project_list_error'));
       }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: see comment above
   }, [authState]);
 
   useEffect(() => {

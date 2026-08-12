@@ -31,6 +31,7 @@ const SettingsTab = ({ project, csrfToken, onNotify }) => {
 
   useEffect(() => {
     loadSettings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadSettings is recreated each render
   }, [project.name]);
 
   const handleSaveBuild = async () => {

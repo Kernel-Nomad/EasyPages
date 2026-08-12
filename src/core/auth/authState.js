@@ -1,12 +1,13 @@
 /**
  * In-process snapshot of the authentication state, so the auth middleware never reads
- * credentials.json on the hot path. Only the endpoints that change it invalidate this.
+ * credentials.json on every request. Endpoints that change credentials update it in place;
+ * periodic refresh (see TTL) catches an operator deleting the file by hand.
  *
  * No lock: Node is single-threaded per process and the server neither forks nor clusters.
  */
 
-// While unconfigured the store is re-read at most every N ms, so deleting the file by hand
-// brings the wizard back without a restart. Once configured, only the endpoints update it.
+// Re-read at most this often. While unconfigured it brings the wizard back after a create;
+// while configured it notices a deleted credentials.json without requiring a process restart.
 export const NEGATIVE_TTL_MS = 5000;
 
 /**
@@ -19,24 +20,27 @@ export const createAuthState = ({ store, now = () => Date.now() }) => {
   let checkedAt = 0;
 
   const loadFromStore = () => {
-    let record = null;
+    let record;
     try {
       record = store.read();
     } catch (error) {
-      // A storage problem must not become a boot crash.
+      // A storage problem must not become a boot crash, and a transient failure must not
+      // reopen the setup wizard on a configured instance.
       console.warn(
         '[EasyPages] Could not read the credentials:',
         error instanceof Error ? error.message : error,
       );
+      checkedAt = now();
+      return;
     }
 
-    // A cached `true` never degrades back to `false`: a transient read failure must not
-    // reopen the setup wizard on a configured instance.
     if (record) {
       configured = true;
       username = record.username;
       tokenVersion = record.token_version;
-    } else if (!configured) {
+    } else {
+      // Successful read of absence: the file was removed or is unusable. Sessions that
+      // matched the previous snapshot must stop passing requireAuth.
       configured = false;
       username = null;
       tokenVersion = 0;
@@ -46,7 +50,7 @@ export const createAuthState = ({ store, now = () => Date.now() }) => {
 
   const getSnapshot = () => {
     const stale = now() - checkedAt >= NEGATIVE_TTL_MS;
-    if (configured === null || (configured === false && stale)) {
+    if (configured === null || stale) {
       loadFromStore();
     }
     return { configured: Boolean(configured), tokenVersion, username };

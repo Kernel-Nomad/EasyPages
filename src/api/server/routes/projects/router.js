@@ -26,7 +26,7 @@ export const createProjectsRouter = ({ cloudflare, createProjectLimiter }) => {
       const projects = await projectsService.listProjects();
       res.json(projects);
     } catch (error) {
-      sendErrorResponse(res, error, 'Error al conectar con Cloudflare', req);
+      sendErrorResponse(res, error, 'Failed to connect to Cloudflare', req);
     }
   });
 
@@ -47,7 +47,7 @@ export const createProjectsRouter = ({ cloudflare, createProjectLimiter }) => {
       );
       res.json(project);
     } catch (error) {
-      sendErrorResponse(res, error, 'Error al actualizar el proyecto', req);
+      sendErrorResponse(res, error, 'Failed to update the project', req);
     }
   });
 
@@ -80,7 +80,7 @@ export const createProjectsRouter = ({ cloudflare, createProjectLimiter }) => {
       const result = await projectsService.updateProjectEnv(toUpdateProjectEnvInput(req));
       res.json(result);
     } catch (error) {
-      sendErrorResponse(res, error, 'Error al guardar variables de entorno', req);
+      sendErrorResponse(res, error, 'Failed to save environment variables', req);
     }
   });
 
@@ -94,7 +94,7 @@ export const createProjectsRouter = ({ cloudflare, createProjectLimiter }) => {
       const project = await projectsService.createProject(toCreateProjectInput(req));
       res.json(project);
     } catch (error) {
-      sendErrorResponse(res, error, 'Error al crear el proyecto', req);
+      sendErrorResponse(res, error, 'Failed to create the project', req);
     }
   });
 
