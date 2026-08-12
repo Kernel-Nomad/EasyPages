@@ -16,7 +16,7 @@ const writeZip = (dir, name, addFiles) => {
   return zipPath;
 };
 
-test('uploadProjectBundle procesa un ZIP válido y llama a Cloudflare', async () => {
+test('uploadProjectBundle processes a valid ZIP and calls Cloudflare', async () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'ep-upload-'));
   try {
     const zipPath = writeZip(dir, 'ok.zip', [{ path: 'index.html', data: '<p>x</p>' }]);
@@ -60,7 +60,7 @@ test('uploadProjectBundle procesa un ZIP válido y llama a Cloudflare', async ()
   }
 });
 
-test('uploadProjectBundle rechaza entrada cuyo contenido real supera maxZipEntryBytes', async () => {
+test('uploadProjectBundle rejects an entry whose real content exceeds maxZipEntryBytes', async () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'ep-upload-'));
   try {
     const zipPath = writeZip(dir, 'big.zip', [{ path: 'a.txt', data: '12345' }]);
@@ -91,7 +91,7 @@ test('uploadProjectBundle rechaza entrada cuyo contenido real supera maxZipEntry
   }
 });
 
-test('uploadProjectBundle rechaza ZIP cuyo total descomprimido real supera el límite', async () => {
+test('uploadProjectBundle rejects a ZIP whose real uncompressed total exceeds the limit', async () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'ep-upload-'));
   try {
     const zipPath = writeZip(dir, 'total.zip', [

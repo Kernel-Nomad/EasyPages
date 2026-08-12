@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2, Terminal } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { easyPagesClient } from '../../../../api/client/easyPagesApi.js';
-import { isSecurityError } from '../../../app/hooks/useCsrfSession.js';
+import { isSecurityError } from '../../../app/hooks/useAuthSession.js';
 
 const SettingsTab = ({ project, csrfToken, onNotify }) => {
   const { t } = useTranslation();

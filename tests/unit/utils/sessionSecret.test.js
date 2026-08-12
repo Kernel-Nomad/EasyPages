@@ -8,11 +8,11 @@ import {
   SESSION_SECRET_FILENAME,
 } from '../../../src/utils/files.js';
 
-test('con SESSION_SECRET definido se devuelve recortado', () => {
+test('a defined SESSION_SECRET is returned trimmed', () => {
   assert.equal(resolveCookieSessionSecret({ sessionSecretFromEnv: '  abc  ' }), 'abc');
 });
 
-test('sin SESSION_SECRET ni dataDir genera hex de 64 caracteres y avisa', () => {
+test('without SESSION_SECRET or dataDir it generates 64 hex chars and warns', () => {
   const prevWarn = console.warn;
   let warned = false;
   console.warn = (...args) => {
@@ -28,7 +28,7 @@ test('sin SESSION_SECRET ni dataDir genera hex de 64 caracteres y avisa', () => 
   }
 });
 
-test('sin SESSION_SECRET pero con dataDir crea archivo y reutiliza el secreto', () => {
+test('without SESSION_SECRET but with dataDir it creates the file and reuses the secret', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'easypages-secret-'));
   try {
     const a = resolveCookieSessionSecret({ dataDir: dir });
@@ -42,7 +42,7 @@ test('sin SESSION_SECRET pero con dataDir crea archivo y reutiliza el secreto', 
   }
 });
 
-test('SESSION_SECRET tiene prioridad sobre dataDir', () => {
+test('SESSION_SECRET takes precedence over dataDir', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'easypages-secret-'));
   try {
     resolveCookieSessionSecret({ sessionSecretFromEnv: 'from-env', dataDir: dir });

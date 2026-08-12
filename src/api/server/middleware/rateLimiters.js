@@ -1,38 +1,39 @@
 import rateLimit from 'express-rate-limit';
 
-export const loginLimiter = rateLimit({
+/**
+ * The dist/ bundle is public now that login lives in the SPA, so this is what an anonymous
+ * visitor spends just loading the app. Generous on purpose: exhausting it means the login
+ * screen itself will not load.
+ */
+export const staticLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  limit: 1000,
   standardHeaders: true,
   legacyHeaders: false,
-  skipSuccessfulRequests: true,
-  requestWasSuccessful: (req, res) => {
-    if (res.statusCode >= 400) {
-      return false;
-    }
-    if (res.statusCode === 302) {
-      const loc = String(res.getHeader('Location') ?? '');
-      return !loc.includes('/login');
-    }
-    return true;
-  },
-  handler: (req, res) => {
-    res.redirect(302, '/login?error=rate');
-  },
+  // Hashed asset names are immutable and heavily requested on a cold load.
+  skip: (req) => req.path.startsWith('/assets/'),
+});
+
+/** Navigation routes only: one HTML shell per request, so a smaller budget fits. */
+export const spaLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 export const uploadLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 10,
-  message: { error: 'Límite de subidas excedido. Intente más tarde.' },
+  limit: 10,
+  message: { error: 'Upload limit exceeded. Try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
 export const createProjectLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
-  message: { error: 'Demasiadas solicitudes de creación de proyectos.' },
+  limit: 20,
+  message: { error: 'Too many project creation requests.' },
   standardHeaders: true,
   legacyHeaders: false,
 });

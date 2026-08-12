@@ -19,20 +19,30 @@ jobs:
         with:
           ref: ${{ github.event.release.tag_name }}
 
+      # No `version:` — pnpm/action-setup reads the one pinned by `packageManager`.
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version-file: ".nvmrc"
-          cache: npm
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm run lint
+
+      # Before the tests, not after: the integration suite boots the real app and asserts
+      # that the SPA shell and its assets are served, which needs dist/ to exist.
+      - name: Build frontend
+        run: pnpm run build
 
       - name: Run tests
-        run: npm test
-
-      - name: Build frontend
-        run: npm run build
+        run: pnpm test
 
   build-and-push:
     if: ${{ !github.event.release.prerelease }}

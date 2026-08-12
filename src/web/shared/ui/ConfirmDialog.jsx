@@ -1,73 +1,17 @@
-import React, { useEffect, useId, useRef } from 'react';
+import { useId } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 const ConfirmDialog = ({ confirmation, onCancel, onConfirm }) => {
   const { t } = useTranslation();
   const dialogId = useId();
-  const dialogRef = useRef(null);
-  const previousFocusRef = useRef(null);
-
-  const getFocusableElements = () => {
-    if (!dialogRef.current) {
-      return [];
-    }
-
-    return Array.from(
-      dialogRef.current.querySelectorAll(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-      ),
-    ).filter((element) => !element.hasAttribute('disabled'));
-  };
-
-  useEffect(() => {
-    if (!confirmation) {
-      return undefined;
-    }
-
-    previousFocusRef.current = document.activeElement;
-    const focusableElements = getFocusableElements();
-    focusableElements[0]?.focus();
-
-    return () => {
-      previousFocusRef.current?.focus?.();
-    };
-  }, [confirmation]);
+  // Unconditional: the early return below happens after every hook has run.
+  const { dialogRef } = useFocusTrap({ open: Boolean(confirmation), onClose: onCancel });
 
   if (!confirmation) {
     return null;
   }
-
-  const handleKeyDown = (event) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      onCancel();
-      return;
-    }
-
-    if (event.key !== 'Tab') {
-      return;
-    }
-
-    const focusableElements = getFocusableElements();
-    if (focusableElements.length === 0) {
-      return;
-    }
-
-    const firstElement = focusableElements[0];
-    const lastElement = focusableElements[focusableElements.length - 1];
-
-    if (event.shiftKey && document.activeElement === firstElement) {
-      event.preventDefault();
-      lastElement.focus();
-      return;
-    }
-
-    if (!event.shiftKey && document.activeElement === lastElement) {
-      event.preventDefault();
-      firstElement.focus();
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm">
@@ -76,7 +20,6 @@ const ConfirmDialog = ({ confirmation, onCancel, onConfirm }) => {
         role="dialog"
         aria-modal="true"
         aria-labelledby={dialogId}
-        onKeyDown={handleKeyDown}
         className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl animate-in zoom-in-95 duration-200"
       >
         <div className="flex items-start gap-3">

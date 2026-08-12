@@ -8,7 +8,7 @@ export const ensureDirectory = (directoryPath) => {
   }
 };
 
-/** Archivo opaco bajo `EASYPAGES_DATA_DIR` para firmar cookies sin definir `SESSION_SECRET`. */
+/** Opaque file under EASYPAGES_DATA_DIR used to sign cookies when SESSION_SECRET is unset. */
 export const SESSION_SECRET_FILENAME = '.easypages-session-secret';
 
 const MIN_SESSION_SECRET_FILE_LENGTH = 32;
@@ -25,8 +25,8 @@ const readValidSecretFromFile = (secretPath) => {
 };
 
 /**
- * Secreto para firmar la cookie de sesión (`cookie-session`).
- * Orden: `SESSION_SECRET` en entorno → archivo en `dataDir` → aleatorio en memoria (solo dev).
+ * Key used to sign the session cookie. Order: SESSION_SECRET, then a file in dataDir, then
+ * a random in-memory key (dev only).
  * @param {{ sessionSecretFromEnv?: string, dataDir?: string }} [options]
  * @returns {string}
  */
@@ -50,7 +50,7 @@ export const resolveCookieSessionSecret = ({
         try {
           fs.chmodSync(secretPath, 0o600);
         } catch {
-          // ignorar (p. ej. Windows o FS sin chmod)
+          // ignore (e.g. Windows, or a filesystem without chmod)
         }
         return fromFile;
       }
@@ -70,7 +70,8 @@ export const resolveCookieSessionSecret = ({
           return again;
         }
         throw new Error(
-          `EasyPages: ${secretPath} existe pero no contiene un secreto válido (≥${MIN_SESSION_SECRET_FILE_LENGTH} caracteres).`,
+          `EasyPages: ${secretPath} exists but does not contain a valid secret (>= ${MIN_SESSION_SECRET_FILE_LENGTH} characters).`,
+          { cause: e },
         );
       }
       throw e;
@@ -78,14 +79,14 @@ export const resolveCookieSessionSecret = ({
     try {
       fs.chmodSync(secretPath, 0o600);
     } catch {
-      // ignorar
+      // ignore
     }
     return secret;
   }
 
   console.warn(
-    '[EasyPages] Sin SESSION_SECRET ni EASYPAGES_DATA_DIR: se usa un secreto aleatorio solo en memoria. ' +
-      'Las sesiones caducan al reiniciar. En Docker, el volumen en /data guarda el secreto en .easypages-session-secret.',
+    '[EasyPages] No SESSION_SECRET and no EASYPAGES_DATA_DIR: using a random in-memory secret. ' +
+      'Sessions will not survive a restart.',
   );
   return crypto.randomBytes(32).toString('hex');
 };
@@ -106,7 +107,7 @@ export const safeUnlink = (filePath, uploadsDir) => {
     }
   } catch (error) {
     // realpathSync or unlinkSync may throw; log and continue without leaking details to the client.
-    console.error('Error al eliminar archivo temporal:', error);
+    console.error('Could not delete the temporary file:', error);
   }
 };
 

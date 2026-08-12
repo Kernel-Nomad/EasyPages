@@ -6,10 +6,21 @@ dist
 .env.*
 !.env.example
 uploads
+# Local EASYPAGES_DATA_DIR: credentials.json and the session secret. They must never reach
+# the build context — the final image does not copy them, but they would still sit in a
+# cached build layer.
+data
+easypages-data
+.easypages-session-secret
 sessions
 .session_secret
 tests
 scripts
+.pnpm-store
 .DS_Store
 CHANGELOG.md
 CONTRIBUTING.md
+SECURITY.md
+Makefile
+eslint.config.js
+vitest.config.js

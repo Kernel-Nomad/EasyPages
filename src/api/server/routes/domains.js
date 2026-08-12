@@ -10,7 +10,7 @@ export const createDomainsRouter = ({ cloudflare }) => {
     try {
       const { projectName } = req.params;
       if (!isValidProjectName(projectName)) {
-        return res.status(400).json({ error: 'Nombre de proyecto inválido' });
+        return res.status(400).json({ error: 'Invalid project name' });
       }
 
       const response = await cloudflare.get(`/pages/projects/${projectName}/domains`);
@@ -26,17 +26,17 @@ export const createDomainsRouter = ({ cloudflare }) => {
       const { name } = req.body;
 
       if (!isValidProjectName(projectName)) {
-        return res.status(400).json({ error: 'Nombre de proyecto inválido' });
+        return res.status(400).json({ error: 'Invalid project name' });
       }
 
       if (!isValidDomainName(name)) {
-        return res.status(400).json({ error: 'Nombre de dominio inválido' });
+        return res.status(400).json({ error: 'Invalid domain name' });
       }
 
       const response = await cloudflare.post(`/pages/projects/${projectName}/domains`, { name });
       res.json(response.data.result);
     } catch (error) {
-      sendErrorResponse(res, error, 'Error al añadir el dominio', req);
+      sendErrorResponse(res, error, 'Error adding the domain', req);
     }
   });
 
@@ -44,7 +44,7 @@ export const createDomainsRouter = ({ cloudflare }) => {
     try {
       const { projectName, domainName } = req.params;
       if (!isValidProjectName(projectName) || !isValidDomainName(domainName)) {
-        return res.status(400).json({ error: 'Parámetros inválidos' });
+        return res.status(400).json({ error: 'Invalid parameters' });
       }
 
       await cloudflare.delete(`/pages/projects/${projectName}/domains/${domainName}`);

@@ -1,5 +1,6 @@
+import path from 'path';
 import dotenv from 'dotenv';
-import { repoEnvPath } from './paths.js';
+import { appRootDir, repoEnvPath } from './paths.js';
 import { trimEnv } from './trimEnv.js';
 
 const dotenvResult = dotenv.config({ path: repoEnvPath });
@@ -9,21 +10,22 @@ if (dotenvResult.error) {
 
 export const PORT = process.env.PORT || 8002;
 export const CF_API_TOKEN = trimEnv(process.env.CF_API_TOKEN);
+
+/** Optional: inferred from the token unless the token reaches more than one account. */
 export const CF_ACCOUNT_ID = trimEnv(process.env.CF_ACCOUNT_ID);
-export const AUTH_USER = trimEnv(process.env.AUTH_USER);
-export const AUTH_PASS = trimEnv(process.env.AUTH_PASS);
+
 export const SESSION_SECRET = trimEnv(process.env.SESSION_SECRET);
-export const EASYPAGES_DATA_DIR = trimEnv(process.env.EASYPAGES_DATA_DIR);
-
-/** Formato bcrypt estándar (60 caracteres): $2a|b|y$ + coste + salt + hash. */
-const AUTH_PASS_BCRYPT_RE = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/;
-
-export const isValidAuthPassBcryptFormat = (value) =>
-  typeof value === 'string' && AUTH_PASS_BCRYPT_RE.test(value);
 
 /**
- * Cookie de sesión `Secure`: booleano explícito.
- * `SESSION_COOKIE_SECURE=true|false` tiene prioridad; si no se define, en `NODE_ENV=production` es `true` (HTTPS detrás de proxy con trust proxy).
+ * Where the session secret and the operator credential live. Always resolves to a real
+ * path: without one the credential would not survive a restart.
+ */
+export const EASYPAGES_DATA_DIR =
+  trimEnv(process.env.EASYPAGES_DATA_DIR) ?? path.join(appRootDir, 'data');
+
+/**
+ * `Secure` flag on the session cookie. `SESSION_COOKIE_SECURE=true|false` wins; otherwise
+ * it follows `NODE_ENV=production`.
  */
 let explicitSessionCookieSecure = null;
 const sessionCookieSecureRaw = process.env.SESSION_COOKIE_SECURE;
@@ -41,10 +43,8 @@ export const SESSION_COOKIE_SECURE =
     : process.env.NODE_ENV === 'production';
 
 /**
- * Valor de `app.set('trust proxy', …)` (Express).
- * Por omisión `1` (primer hop de confianza), típico detrás de un reverse proxy.
- * `TRUST_PROXY=false|0|no` desactiva la confianza en `X-Forwarded-*` (p. ej. exposición directa sin proxy);
- * en ese caso los rate limits usan la IP del socket, no la cabecera.
+ * Value for Express `trust proxy`. Defaults to one trusted hop. `TRUST_PROXY=false|0|no`
+ * stops trusting `X-Forwarded-*`, so rate limits key on the socket address instead.
  */
 const parseTrustProxy = () => {
   const raw = process.env.TRUST_PROXY;
@@ -67,50 +67,36 @@ const parseTrustProxy = () => {
 
 export const TRUST_PROXY = parseTrustProxy();
 
-export const missingRequiredServerEnvKeys = ({
-  cfApiToken,
-  cfAccountId,
-  authUser,
-  authPass,
-}) => {
+/**
+ * `CF_API_TOKEN` is the only thing that has to be configured: the account id is inferred
+ * from it, and the credentials are created by the setup wizard.
+ */
+export const missingRequiredServerEnvKeys = ({ cfApiToken }) => {
   const missing = [];
   if (!cfApiToken) {
     missing.push('CF_API_TOKEN');
-  }
-  if (!cfAccountId) {
-    missing.push('CF_ACCOUNT_ID');
-  }
-  if (!authUser) {
-    missing.push('AUTH_USER');
-  }
-  if (!authPass) {
-    missing.push('AUTH_PASS');
   }
   return missing;
 };
 
 export const assertRequiredServerEnv = () => {
-  const missing = missingRequiredServerEnvKeys({
-    cfApiToken: CF_API_TOKEN,
-    cfAccountId: CF_ACCOUNT_ID,
-    authUser: AUTH_USER,
-    authPass: AUTH_PASS,
-  });
+  const missing = missingRequiredServerEnvKeys({ cfApiToken: CF_API_TOKEN });
 
   if (missing.length > 0) {
-    const ordered = ['CF_API_TOKEN', 'CF_ACCOUNT_ID', 'AUTH_USER', 'AUTH_PASS'].filter((name) =>
-      missing.includes(name),
-    );
-    const bullets = ordered.map((name) => `  - ${name}`).join('\n');
+    const bullets = missing.map((name) => `  - ${name}`).join('\n');
+    // First thing an operator sees on a failed boot, so it says what to do.
     let msg =
-      'EasyPages: faltan variables obligatorias en .env (en la misma carpeta que docker-compose.yml):\n' +
+      'EasyPages: missing required variables in .env (next to docker-compose.yml):\n' +
       `${bullets}\n` +
-      'Copia .env.example a .env, rellénalas en ese orden y reinicia (p. ej. docker compose up -d).';
+      'Copy .env.example to .env, fill them in and restart (e.g. docker compose up -d).\n' +
+      'CF_ACCOUNT_ID is not needed: it is inferred from the token, and only has to be set if '
+      + 'the token grants access to several accounts.\n' +
+      'The username and password do not go in .env either: you create them in the browser '
+      + 'the first time you open EasyPages.';
     const dataDir = process.env.EASYPAGES_DATA_DIR?.trim();
     if (dataDir) {
-      msg += `\nDocker: env_file debe cargar ese .env; datos persistentes en el volumen montado en ${dataDir}.`;
+      msg += `\nDocker: env_file must load that .env; persistent data lives in the volume mounted at ${dataDir}.`;
     }
     throw new Error(msg);
   }
-
 };

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createSessionCsrfProtection } from '../../../../src/api/server/middleware/csrf.js';
 
-test('GET inicializa req.csrfToken y no exige validación', () => {
+test('GET initialises req.csrfToken and requires no validation', () => {
   const mw = createSessionCsrfProtection();
   const session = {};
   const req = { method: 'GET', session, get: () => '', body: {} };
@@ -17,7 +17,7 @@ test('GET inicializa req.csrfToken y no exige validación', () => {
   assert.equal(t.length > 0, true);
 });
 
-test('POST sin token coincide con error EBADCSRFTOKEN', () => {
+test('POST without a token fails with EBADCSRFTOKEN', () => {
   const mw = createSessionCsrfProtection();
   const session = { csrfToken: 'known' };
   const req = { method: 'POST', session, get: () => '', body: {} };
@@ -30,7 +30,7 @@ test('POST sin token coincide con error EBADCSRFTOKEN', () => {
   assert.equal(err.status, 403);
 });
 
-test('POST con cabecera CSRF-Token válida pasa', () => {
+test('POST with a valid CSRF-Token header passes', () => {
   const mw = createSessionCsrfProtection();
   const session = { csrfToken: 'abc123' };
   const req = {
@@ -46,7 +46,7 @@ test('POST con cabecera CSRF-Token válida pasa', () => {
   assert.ifError(err);
 });
 
-test('POST con _csrf en body válido pasa', () => {
+test('POST with a valid _csrf body field passes', () => {
   const mw = createSessionCsrfProtection();
   const session = { csrfToken: 'bodytok' };
   const req = {
@@ -62,7 +62,7 @@ test('POST con _csrf en body válido pasa', () => {
   assert.ifError(err);
 });
 
-test('POST con token de longitud distinta rechaza (EBADCSRFTOKEN)', () => {
+test('POST with a token of a different length is rejected', () => {
   const mw = createSessionCsrfProtection();
   const session = { csrfToken: 'short' };
   const req = {

@@ -1,4 +1,3 @@
-import React from 'react';
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 

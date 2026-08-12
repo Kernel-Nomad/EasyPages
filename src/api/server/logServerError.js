@@ -1,5 +1,5 @@
 /**
- * Registra errores 5xx en servidor (sin cuerpos de petición ni cabeceras sensibles).
+ * Log a 5xx. Deliberately excludes request bodies and headers.
  * @param {import('express').Request | undefined} req
  * @param {unknown} err
  * @param {string} [contextLabel]
@@ -10,7 +10,7 @@ export const logServerError = (req, err, contextLabel = '') => {
   const label = contextLabel ? ` (${contextLabel})` : '';
   const message = err instanceof Error ? err.message : String(err);
   const stack = err instanceof Error ? err.stack : undefined;
-  console.error(`[EasyPages] Error del servidor${label} ${method} ${url} ${message}`);
+  console.error(`[EasyPages] Server error${label} ${method} ${url} ${message}`);
   if (stack) {
     console.error(stack);
   }

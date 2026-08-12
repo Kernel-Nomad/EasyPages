@@ -76,20 +76,20 @@ export const uploadProjectBundle = async ({
 
     const declaredSize = entry.header.size || 0;
     if (declaredSize > limits.maxZipEntryBytes) {
-      throw createHttpError(413, 'Uno de los archivos del ZIP excede el tamaño permitido.');
+      throw createHttpError(413, 'One of the files in the ZIP exceeds the allowed size.');
     }
 
     const content = entry.getData();
     const actualSize = content.length;
     if (actualSize > limits.maxZipEntryBytes) {
-      throw createHttpError(413, 'Uno de los archivos del ZIP excede el tamaño permitido.');
+      throw createHttpError(413, 'One of the files in the ZIP exceeds the allowed size.');
     }
 
     totalUncompressedBytes += actualSize;
     if (totalUncompressedBytes > limits.maxTotalUncompressedBytes) {
       throw createHttpError(
         413,
-        'El contenido descomprimido del ZIP excede el tamaño permitido.',
+        'The uncompressed contents of the ZIP exceed the allowed size.',
       );
     }
 
@@ -117,7 +117,7 @@ export const uploadProjectBundle = async ({
   }
 
   if (uploadedFileCount === 0) {
-    throw createHttpError(400, 'El archivo ZIP está vacío, no contiene archivos válidos o seguros.');
+    throw createHttpError(400, 'The ZIP file is empty or contains no valid, safe files.');
   }
 
   await flushUploadBatch();

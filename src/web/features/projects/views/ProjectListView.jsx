@@ -1,4 +1,3 @@
-import React from 'react';
 import { Loader2, Plus, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import ProjectCard from '../components/ProjectCard';

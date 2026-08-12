@@ -7,21 +7,21 @@ export const startServer = ({ port = PORT } = {}) => {
     app = createApp();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error(message || '[EasyPages] Error al crear la aplicación.');
+    console.error(message || '[EasyPages] Failed to create the application.');
     process.exit(1);
   }
 
   const server = app.listen(port, () => {
     console.log(
-      `✅ EasyPages en http://127.0.0.1:${port} — con Docker, usa el puerto que publique Compose (p. ej. 8002).`,
+      `✅ EasyPages on http://127.0.0.1:${port} — with Docker, use the port Compose publishes (e.g. 8002).`,
     );
   });
 
   server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
-      console.error(`[EasyPages] El puerto ${port} ya está en uso. Elige otro o libera el puerto.`);
+      console.error(`[EasyPages] Port ${port} is already in use. Pick another one or free it.`);
     } else {
-      console.error('[EasyPages] Error al arrancar el servidor:', err.message);
+      console.error('[EasyPages] Failed to start the server:', err.message);
     }
     process.exit(1);
   });

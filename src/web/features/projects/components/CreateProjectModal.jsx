@@ -1,6 +1,7 @@
-import React, { useEffect, useId, useRef } from 'react';
+import { useId } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
 
 const CreateProjectModal = ({
   creating,
@@ -11,61 +12,9 @@ const CreateProjectModal = ({
 }) => {
   const { t } = useTranslation();
   const dialogId = useId();
-  const dialogRef = useRef(null);
-  const previousFocusRef = useRef(null);
-
-  const getFocusableElements = () => {
-    if (!dialogRef.current) {
-      return [];
-    }
-
-    return Array.from(
-      dialogRef.current.querySelectorAll(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-      ),
-    ).filter((element) => !element.hasAttribute('disabled'));
-  };
-
-  useEffect(() => {
-    previousFocusRef.current = document.activeElement;
-    const focusableElements = getFocusableElements();
-    focusableElements[0]?.focus();
-
-    return () => {
-      previousFocusRef.current?.focus?.();
-    };
-  }, []);
-
-  const handleKeyDown = (event) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      onClose();
-      return;
-    }
-
-    if (event.key !== 'Tab') {
-      return;
-    }
-
-    const focusableElements = getFocusableElements();
-    if (focusableElements.length === 0) {
-      return;
-    }
-
-    const firstElement = focusableElements[0];
-    const lastElement = focusableElements[focusableElements.length - 1];
-
-    if (event.shiftKey && document.activeElement === firstElement) {
-      event.preventDefault();
-      lastElement.focus();
-      return;
-    }
-
-    if (!event.shiftKey && document.activeElement === lastElement) {
-      event.preventDefault();
-      firstElement.focus();
-    }
-  };
+  const nameId = useId();
+  // The trap focuses `initialFocusRef` on open, replacing `autoFocus`.
+  const { dialogRef, initialFocusRef } = useFocusTrap({ open: true, onClose });
 
   return (
     <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -74,16 +23,18 @@ const CreateProjectModal = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby={dialogId}
-        onKeyDown={handleKeyDown}
         className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 animate-in zoom-in-95 duration-200"
       >
         <h3 id={dialogId} className="text-lg font-bold text-gray-900 mb-4">{t('new_project_title')}</h3>
         <form onSubmit={onSubmit}>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{t('project_name_label')}</label>
+              <label htmlFor={nameId} className="block text-sm font-medium text-gray-700 mb-1">
+                {t('project_name_label')}
+              </label>
               <input
-                autoFocus
+                id={nameId}
+                ref={initialFocusRef}
                 type="text"
                 placeholder="mi-sitio-increible"
                 value={newProjectName}

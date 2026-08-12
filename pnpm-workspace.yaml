@@ -1,0 +1,16 @@
+# pnpm settings for EasyPages (not a monorepo: since v10 pnpm reads its settings from this
+# file).
+
+# pnpm blocks dependency install scripts by default — the classic npm supply-chain vector.
+# They are allowed one by one here. esbuild needs one to place its native binary, and it is
+# a build-time dependency only: since scrypt replaced bcrypt there is no native code left in
+# the production tree at all, which is what lets the runtime image skip scripts entirely.
+allowBuilds:
+  esbuild: true
+
+# Minimum age a version must have before a fresh resolution will consider it: 7 days
+# (10080 minutes). Avoids installing a package published hours ago, which is exactly the
+# window in which malicious publishes get caught. Deliberately aligned with
+# `cooldown: default-days: 7` in .github/dependabot.yml.
+# It does not affect --frozen-lockfile, so CI and Docker stay deterministic.
+minimumReleaseAge: 10080

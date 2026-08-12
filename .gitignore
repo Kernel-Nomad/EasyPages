@@ -1,0 +1,36 @@
+# Secrets and local config — MUST NEVER be committed
+.env
+.env.*
+!.env.example
+*.env
+
+# Node / frontend
+node_modules/
+dist/
+.npm/
+.pnpm-store/
+.pnpm-debug.log*
+# npm is no longer used: the project lockfile is pnpm-lock.yaml.
+package-lock.json
+yarn.lock
+coverage/
+
+# Runtime data
+# EASYPAGES_DATA_DIR: session secret and the single credential row live here.
+data/
+easypages-data/
+credentials.json
+.easypages-session-secret
+# multer's scratch space for uploaded archives
+uploads/
+
+# Local agent instructions, not part of the project
+AGENTS.md
+CLAUDE.md
+
+# Editors and OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo

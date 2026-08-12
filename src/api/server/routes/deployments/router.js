@@ -50,7 +50,7 @@ export const createDeploymentsRouter = ({
       if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
         sendErrorResponse(
           res,
-          createHttpError(413, 'El archivo ZIP excede el tamaño máximo permitido.'),
+          createHttpError(413, 'The ZIP file exceeds the maximum allowed size.'),
           'Error al procesar el archivo subido',
           req,
         );
@@ -120,7 +120,7 @@ export const createDeploymentsRouter = ({
       );
       res.json(toDeleteDeploymentsResponse(result));
     } catch (error) {
-      sendErrorResponse(res, error, 'Error procesando la eliminación', req);
+      sendErrorResponse(res, error, 'Error processing the deletion', req);
     }
   });
 
@@ -132,7 +132,7 @@ export const createDeploymentsRouter = ({
       if (!isPathInsideDirectory(normalizedUploadPath, uploadsDir)) {
         console.error('ALERTA DE SEGURIDAD: intento de path traversal en upload:', req.file.path);
         cleanupUploadFile(req.file, uploadsDir);
-        return res.status(403).json({ error: 'Ruta de archivo inválida.' });
+        return res.status(403).json({ error: 'Invalid file path.' });
       }
     }
 
@@ -143,7 +143,7 @@ export const createDeploymentsRouter = ({
     }
 
     if (!req.file) {
-      return res.status(400).json({ error: 'No se subió ningún archivo' });
+      return res.status(400).json({ error: 'No file was uploaded' });
     }
 
     try {

@@ -1,5 +1,5 @@
 /**
- * Normaliza valores de process.env: recorta espacios; cadena vacía tras trim → undefined.
+ * Normalise a process.env value: trimmed, and empty-after-trim becomes undefined.
  * @param {string | undefined} value
  * @returns {string | undefined}
  */

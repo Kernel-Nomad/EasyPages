@@ -1,16 +1,7 @@
 import crypto from 'node:crypto';
+import { timingSafeEqualStrings } from '../../../utils/timingSafe.js';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-
-/** Compara tokens comparando digests SHA-256 (longitud fija) para evitar fugas por longitud. */
-const timingSafeEqualTokenStrings = (submitted, expected) => {
-  if (typeof submitted !== 'string' || typeof expected !== 'string') {
-    return false;
-  }
-  const a = crypto.createHash('sha256').update(submitted, 'utf8').digest();
-  const b = crypto.createHash('sha256').update(expected, 'utf8').digest();
-  return crypto.timingSafeEqual(a, b);
-};
 
 const readSubmittedCsrfToken = (req) => {
   const header =
@@ -27,8 +18,8 @@ const readSubmittedCsrfToken = (req) => {
 };
 
 /**
- * Sustituye csurf: token opaco en sesión, cabecera `CSRF-Token` o campo `_csrf` en body.
- * Expone `req.csrfToken()` como en csurf.
+ * Replaces csurf: an opaque token in the session, sent as the `CSRF-Token` header or a
+ * `_csrf` body field. Exposes `req.csrfToken()` the same way csurf did.
  */
 export const createSessionCsrfProtection = () => (req, res, next) => {
   req.csrfToken = () => {
@@ -45,8 +36,8 @@ export const createSessionCsrfProtection = () => (req, res, next) => {
   const submitted = readSubmittedCsrfToken(req);
   const expected = req.session.csrfToken;
 
-  if (!expected || !timingSafeEqualTokenStrings(submitted, expected)) {
-    const err = new Error('Token CSRF inválido');
+  if (!expected || !timingSafeEqualStrings(submitted, expected)) {
+    const err = new Error('Invalid CSRF token');
     err.code = 'EBADCSRFTOKEN';
     err.status = 403;
     return next(err);

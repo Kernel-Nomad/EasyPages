@@ -1,8 +1,10 @@
-import React from 'react';
-import { Languages, LogOut } from 'lucide-react';
+import { Languages, LogOut, UserCog } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-const AppHeader = ({ language, onToggleLanguage, onLogout }) => {
+const ACTION_CLASS =
+  'flex items-center gap-2 text-sm text-gray-500 hover:text-orange-600 hover:bg-orange-50 px-3 py-2 rounded-lg transition-colors';
+
+const AppHeader = ({ language, onLogout, onOpenAccount, onToggleLanguage, username }) => {
   const { t } = useTranslation();
 
   return (
@@ -18,18 +20,19 @@ const AppHeader = ({ language, onToggleLanguage, onLogout }) => {
         <div className="flex items-center gap-2">
           <button
             onClick={onToggleLanguage}
-            className="flex items-center gap-2 text-sm text-gray-500 hover:text-orange-600 hover:bg-orange-50 px-3 py-2 rounded-lg transition-colors"
+            className={ACTION_CLASS}
             title="Cambiar idioma / Change language"
           >
             <Languages size={18} />
             <span className="font-medium uppercase">{language}</span>
           </button>
 
-          <button
-            onClick={onLogout}
-            className="flex items-center gap-2 text-sm text-gray-500 hover:text-orange-600 hover:bg-orange-50 px-3 py-2 rounded-lg transition-colors"
-            title={t('logout')}
-          >
+          <button onClick={onOpenAccount} className={ACTION_CLASS} title={t('account_title')}>
+            <UserCog size={18} />
+            <span className="hidden sm:block font-medium">{username || t('account_open')}</span>
+          </button>
+
+          <button onClick={onLogout} className={ACTION_CLASS} title={t('logout')}>
             <span className="hidden sm:block font-medium">{t('logout')}</span>
             <LogOut size={18} />
           </button>

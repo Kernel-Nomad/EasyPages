@@ -13,12 +13,12 @@ test('isValidProjectName', () => {
 });
 
 test('validateBuildConfig', () => {
-  assert.equal(validateBuildConfig(null), 'La configuración de build es inválida.');
+  assert.equal(validateBuildConfig(null), 'The build configuration is invalid.');
   assert.equal(validateBuildConfig({}), 'Debe indicar al menos un valor de build_config.');
   assert.equal(validateBuildConfig({ command: 'npm run build' }), null);
 });
 
 test('validateEnvPayload', () => {
   assert.equal(validateEnvPayload({ FOO: 'bar' }), null);
-  assert.equal(validateEnvPayload({ '': 'x' }), 'Las claves de entorno deben ser textos no vacíos.');
+  assert.equal(validateEnvPayload({ '': 'x' }), 'Environment keys must be non-empty strings.');
 });

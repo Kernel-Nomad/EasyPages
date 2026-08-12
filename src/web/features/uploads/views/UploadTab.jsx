@@ -1,8 +1,8 @@
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Loader2, UploadCloud } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { easyPagesClient } from '../../../../api/client/easyPagesApi.js';
-import { isSecurityError } from '../../../app/hooks/useCsrfSession.js';
+import { isSecurityError } from '../../../app/hooks/useAuthSession.js';
 
 const UploadTab = ({ project, csrfToken, onNotify, onUploadSuccess }) => {
   const { t } = useTranslation();

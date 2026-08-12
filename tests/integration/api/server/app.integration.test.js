@@ -1,250 +1,83 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
-import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import bcrypt from 'bcrypt';
+import { createClient, prepareEnv, startApp } from '../../helpers/appHarness.js';
 
-const envKeys = [
-  'CF_API_TOKEN',
-  'CF_ACCOUNT_ID',
-  'AUTH_USER',
-  'AUTH_PASS',
-  'SESSION_SECRET',
-  'NODE_ENV',
-  'SESSION_COOKIE_SECURE',
-];
+// Must happen before app.js (and therefore src/config/env.js) is imported.
+const env = prepareEnv();
 
-const mergeSetCookie = (headers) => {
-  if (typeof headers.getSetCookie === 'function') {
-    return headers.getSetCookie();
-  }
-  const single = headers.get('set-cookie');
-  return single ? [single] : [];
-};
-
-const applySetCookieHeaders = (headers, jarState) => {
-  const list = mergeSetCookie(headers);
-  let next = jarState;
-  for (const sc of list) {
-    const pair = sc.split(';')[0].trim();
-    const name = pair.split('=')[0];
-    const parts = next
-      ? next.split(';').map((s) => s.trim()).filter(Boolean).filter((c) => !c.startsWith(`${name}=`))
-      : [];
-    next = [...parts, pair].join('; ');
-  }
-  return next;
-};
-
-const extractCsrfFromLoginHtml = (html) => {
-  const m = html.match(/name="_csrf"\s+value="([^"]+)"/);
-  assert.ok(m, 'debe existir el campo oculto _csrf en el HTML de login');
-  return m[1];
-};
-
-let prevEnv = {};
-let server;
-let baseUrl;
+let app;
+let client;
 
 before(async () => {
-  for (const k of envKeys) {
-    prevEnv[k] = process.env[k];
-  }
-  process.env.CF_API_TOKEN = 'test-token';
-  process.env.CF_ACCOUNT_ID = 'test-account';
-  process.env.AUTH_USER = 'testuser';
-  process.env.AUTH_PASS = bcrypt.hashSync('testpass', 4);
-  process.env.SESSION_SECRET = '0123456789abcdef0123456789abcdef';
-  process.env.NODE_ENV = 'test';
-  delete process.env.SESSION_COOKIE_SECURE;
-
-  const mockCloudflare = {
-    get: async (resourcePath) => {
-      if (resourcePath === '/pages/projects') {
-        return {
-          data: {
-            result: [{
-              id: 'proj-1',
-              name: 'demo',
-              subdomain: 'demo.pages.dev',
-              source: { type: 'direct_upload' },
-              latest_deployment: { status: 'success' },
-              build_config: {},
-            }],
-          },
-        };
-      }
-      if (resourcePath === '/pages/projects/demo/domains') {
-        return {
-          data: {
-            result: [{ id: 'dom-existing', name: 'existing.example.com' }],
-          },
-        };
-      }
-      throw new Error(`unexpected GET ${resourcePath}`);
-    },
-    post: async (resourcePath, data) => {
-      if (resourcePath === '/pages/projects/demo/domains') {
-        return {
-          data: {
-            result: { id: 'dom-new', name: data.name },
-          },
-        };
-      }
-      throw new Error(`unexpected POST ${resourcePath}`);
-    },
-    patch: async () => {
-      throw new Error('unexpected patch');
-    },
-    delete: async (resourcePath) => {
-      if (resourcePath === '/pages/projects/demo/domains/example.com') {
-        return { data: { success: true } };
-      }
-      throw new Error(`unexpected DELETE ${resourcePath}`);
-    },
-    uploadAssets: async () => {
-      throw new Error('unexpected uploadAssets');
-    },
-  };
-
-  const testDir = path.dirname(fileURLToPath(import.meta.url));
-  const appJs = path.resolve(testDir, '../../../../src/api/server/app.js');
-  const appModule = await import(pathToFileURL(appJs).href);
-  const app = appModule.createApp({ cloudflare: mockCloudflare });
-
-  await new Promise((resolve, reject) => {
-    server = app.listen(0, '127.0.0.1', (err) => (err ? reject(err) : resolve()));
-  });
-  const addr = server.address();
-  baseUrl = `http://127.0.0.1:${addr.port}`;
+  app = await startApp();
+  client = createClient(app.baseUrl);
+  await client.completeSetup();
 });
 
 after(async () => {
-  await new Promise((resolve) => {
-    server.close(() => resolve());
-  });
-  for (const k of envKeys) {
-    if (prevEnv[k] === undefined) {
-      delete process.env[k];
-    } else {
-      process.env[k] = prevEnv[k];
-    }
-  }
+  await app.close();
+  env.restore();
 });
 
-test('flujo HTTP: login, token CSRF y listado de proyectos con Cloudflare simulado', async () => {
-  let jar = '';
+test('HTTP flow: wizard session, CSRF token and project list against a mocked Cloudflare', async () => {
+  const { body: bootstrap } = await client.status();
+  assert.equal(bootstrap.setup_complete, true);
+  assert.equal(bootstrap.authenticated, true);
+  assert.equal(bootstrap.username, 'admin');
+  assert.ok(typeof bootstrap.csrf_token === 'string' && bootstrap.csrf_token.length > 0);
 
-  const loginPage = await fetch(`${baseUrl}/login`);
-  assert.strictEqual(loginPage.status, 200);
-  jar = applySetCookieHeaders(loginPage.headers, jar);
-  const html = await loginPage.text();
-  const csrf = extractCsrfFromLoginHtml(html);
+  const response = await client.request('/api/projects');
+  assert.equal(response.status, 200);
 
-  const loginPost = await fetch(`${baseUrl}/login`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Cookie: jar,
-    },
-    body: new URLSearchParams({
-      username: 'testuser',
-      password: 'testpass',
-      _csrf: csrf,
-    }),
-    redirect: 'manual',
-  });
-  assert.strictEqual(loginPost.status, 302);
-  jar = applySetCookieHeaders(loginPost.headers, jar);
-
-  const csrfRes = await fetch(`${baseUrl}/api/csrf-token`, {
-    headers: { Cookie: jar },
-  });
-  assert.strictEqual(csrfRes.status, 200);
-  jar = applySetCookieHeaders(csrfRes.headers, jar);
-  const { csrfToken } = await csrfRes.json();
-  assert.ok(typeof csrfToken === 'string' && csrfToken.length > 0);
-
-  const projectsRes = await fetch(`${baseUrl}/api/projects`, {
-    headers: {
-      Cookie: jar,
-      'CSRF-Token': csrfToken,
-    },
-  });
-  assert.strictEqual(projectsRes.status, 200);
-  const projects = await projectsRes.json();
+  const projects = await response.json();
   assert.ok(Array.isArray(projects));
-  assert.strictEqual(projects.length, 1);
-  assert.strictEqual(projects[0].name, 'demo');
+  assert.equal(projects.length, 1);
+  assert.equal(projects[0].name, 'demo');
 });
 
-test('flujo HTTP: listar, añadir y eliminar dominio con Cloudflare simulado', async () => {
-  let jar = '';
+test('HTTP flow: list, add and delete a domain against a mocked Cloudflare', async () => {
+  const { body: bootstrap } = await client.status();
+  const { csrf_token: csrfToken } = bootstrap;
 
-  const loginPage = await fetch(`${baseUrl}/login`);
-  jar = applySetCookieHeaders(loginPage.headers, jar);
-  const csrfLogin = extractCsrfFromLoginHtml(await loginPage.text());
-
-  const loginPost = await fetch(`${baseUrl}/login`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Cookie: jar,
-    },
-    body: new URLSearchParams({
-      username: 'testuser',
-      password: 'testpass',
-      _csrf: csrfLogin,
-    }),
-    redirect: 'manual',
-  });
-  assert.strictEqual(loginPost.status, 302);
-  jar = applySetCookieHeaders(loginPost.headers, jar);
-
-  const csrfRes = await fetch(`${baseUrl}/api/csrf-token`, {
-    headers: { Cookie: jar },
-  });
-  assert.strictEqual(csrfRes.status, 200);
-  jar = applySetCookieHeaders(csrfRes.headers, jar);
-  const { csrfToken } = await csrfRes.json();
-
-  const listRes = await fetch(`${baseUrl}/api/projects/demo/domains`, {
-    headers: { Cookie: jar },
-  });
-  assert.strictEqual(listRes.status, 200);
+  const listRes = await client.request('/api/projects/demo/domains');
+  assert.equal(listRes.status, 200);
   const list = await listRes.json();
-  assert.ok(Array.isArray(list));
-  assert.strictEqual(list.length, 1);
-  assert.strictEqual(list[0].name, 'existing.example.com');
+  assert.equal(list.length, 1);
+  assert.equal(list[0].name, 'existing.example.com');
 
-  const addRes = await fetch(`${baseUrl}/api/projects/demo/domains`, {
+  const addRes = await client.request('/api/projects/demo/domains', {
+    csrfToken,
+    json: { name: 'new.example.com' },
     method: 'POST',
-    headers: {
-      Cookie: jar,
-      'Content-Type': 'application/json',
-      'CSRF-Token': csrfToken,
-    },
-    body: JSON.stringify({ name: 'new.example.com' }),
   });
-  assert.strictEqual(addRes.status, 200);
-  const added = await addRes.json();
-  assert.strictEqual(added.name, 'new.example.com');
+  assert.equal(addRes.status, 200);
+  assert.equal((await addRes.json()).name, 'new.example.com');
 
-  const delRes = await fetch(`${baseUrl}/api/projects/demo/domains/example.com`, {
+  const delRes = await client.request('/api/projects/demo/domains/example.com', {
+    csrfToken,
     method: 'DELETE',
-    headers: {
-      Cookie: jar,
-      'CSRF-Token': csrfToken,
-    },
   });
-  assert.strictEqual(delRes.status, 200);
-  const delBody = await delRes.json();
-  assert.strictEqual(delBody.success, true);
+  assert.equal(delRes.status, 200);
+  assert.equal((await delRes.json()).success, true);
 });
 
-test('sin sesión: GET /index.html redirige al login', async () => {
-  const res = await fetch(`${baseUrl}/index.html`, { redirect: 'manual' });
-  assert.strictEqual(res.status, 302);
-  const loc = res.headers.get('location');
-  assert.ok(loc && loc.includes('/login'));
+test('an unsafe request without a CSRF token is rejected with 403 csrf_invalid', async () => {
+  const response = await client.request('/api/projects/demo/domains', {
+    json: { name: 'no-token.example.com' },
+    method: 'POST',
+  });
+
+  assert.equal(response.status, 403);
+  assert.equal((await response.json()).code, 'csrf_invalid');
+});
+
+test('without a session the bundle is public and the API is not', async () => {
+  // Inverted from the previous release: with login inside the SPA, gating the shell would
+  // leave an anonymous visitor with nothing to load.
+  const shell = await fetch(`${app.baseUrl}/index.html`, { redirect: 'manual' });
+  assert.equal(shell.status, 200);
+
+  const api = await fetch(`${app.baseUrl}/api/projects`, { redirect: 'manual' });
+  assert.equal(api.status, 401);
+  assert.equal((await api.json()).code, 'session_expired');
 });

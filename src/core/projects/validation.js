@@ -8,7 +8,7 @@ export const isValidProjectName = (name) =>
 
 export const validateBuildConfig = (buildConfig) => {
   if (!isPlainObject(buildConfig)) {
-    return 'La configuración de build es inválida.';
+    return 'The build configuration is invalid.';
   }
 
   const hasCommand = buildConfig.command !== undefined;
@@ -31,12 +31,12 @@ export const validateBuildConfig = (buildConfig) => {
 
 export const validateEnvPayload = (env) => {
   if (!isPlainObject(env)) {
-    return 'La configuración de variables de entorno es inválida.';
+    return 'The environment variable configuration is invalid.';
   }
 
   for (const [key, value] of Object.entries(env)) {
     if (typeof key !== 'string' || key.trim() === '') {
-      return 'Las claves de entorno deben ser textos no vacíos.';
+      return 'Environment keys must be non-empty strings.';
     }
 
     if (typeof value !== 'string') {

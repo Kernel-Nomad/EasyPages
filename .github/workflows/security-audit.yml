@@ -1,0 +1,45 @@
+# Deliberately not on push or pull_request. A vulnerability published today is not a
+# reason to block a commit that has nothing to do with it: run on every push, this sat red
+# on main and decorated every Dependabot PR with a cross nobody could clear.
+name: Security audit
+
+on:
+  schedule:
+    # Mondays 05:30 UTC, before the Dependabot run.
+    - cron: "30 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: pnpm audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Blocking: these are the packages that actually ship in the image.
+      - name: Audit production dependencies
+        run: pnpm audit --prod --audit-level high
+
+      # Informational: a vulnerable linter or test runner never reaches a user, so it
+      # reports without failing the job.
+      - name: Audit the full tree (informational)
+        continue-on-error: true
+        run: pnpm audit --audit-level moderate

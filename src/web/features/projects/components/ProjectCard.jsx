@@ -1,4 +1,3 @@
-import React from 'react';
 import { Box, GitBranch, Globe, HardDrive } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import StatusBadge from '../../../shared/ui/StatusBadge';

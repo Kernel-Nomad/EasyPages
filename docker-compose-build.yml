@@ -17,13 +17,16 @@ services:
       - .env
     volumes:
       - ./easypages-data:/data
+    # The Dockerfile carries its own HEALTHCHECK; this repeats it so anyone holding an
+    # older docker-compose.yml can see the right path. /api/health is public and does not
+    # touch the session, unlike /api/auth/status.
     healthcheck:
       test:
         [
           "CMD",
           "node",
           "-e",
-          "fetch('http://127.0.0.1:8002/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:8002/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 30s
       timeout: 5s

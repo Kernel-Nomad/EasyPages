@@ -11,15 +11,15 @@ export const validateDeploymentDeleteRequest = (body) => {
   }
 
   if (body.deploymentIds.length > MAX_DELETE_DEPLOYMENT_IDS) {
-    return `Se enviaron demasiados IDs para borrar (máximo ${MAX_DELETE_DEPLOYMENT_IDS}).`;
+    return `Too many deployment IDs to delete (maximum ${MAX_DELETE_DEPLOYMENT_IDS}).`;
   }
 
   if (!body.deploymentIds.every(isValidDeploymentId)) {
-    return 'Todos los IDs de despliegue deben ser strings no vacíos.';
+    return 'Every deployment ID must be a non-empty string.';
   }
 
   return null;
 };
 
 export const validateProjectNameParam = (projectName) =>
-  !isValidProjectName(projectName) ? 'Nombre de proyecto inválido' : null;
+  !isValidProjectName(projectName) ? 'Invalid project name' : null;

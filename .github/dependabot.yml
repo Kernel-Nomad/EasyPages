@@ -7,11 +7,43 @@ updates:
       day: "monday"
       time: "09:00"
     open-pull-requests-limit: 10
-    # Evita PRs de major en el grupo agrupado (misma intención que ignorar major en dependencias npm).
-    ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-major"]
+    versioning-strategy: increase-if-necessary
+    # Same window as `minimumReleaseAge` in pnpm-workspace.yaml: a version published hours
+    # ago is exactly the one a malicious publish is caught in.
+    cooldown:
+      default-days: 7
     groups:
-      dependencies:
+      # Security fixes get their own group with no version filter. Previously a single
+      # blanket `ignore` on majors also silenced security majors, which is the one case
+      # that must never be held back.
+      security:
+        applies-to: security-updates
         patterns:
           - "*"
+      # Routine updates stay on minor and patch: a major here means a breaking change that
+      # deserves a human reading the changelog.
+      dependencies:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"

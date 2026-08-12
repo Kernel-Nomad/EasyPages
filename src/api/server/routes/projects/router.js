@@ -61,7 +61,7 @@ export const createProjectsRouter = ({ cloudflare, createProjectLimiter }) => {
       const projectSettings = await projectsService.getProjectSettings(toProjectInput(req));
       res.json(projectSettings);
     } catch (error) {
-      sendErrorResponse(res, error, 'Error al cargar la configuración del proyecto', req);
+      sendErrorResponse(res, error, 'Error loading the project configuration', req);
     }
   });
 
