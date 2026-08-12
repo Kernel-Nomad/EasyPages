@@ -29,6 +29,7 @@ const DomainsTab = ({ project, csrfToken, onConfirm, onNotify }) => {
 
   useEffect(() => {
     loadDomains();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadDomains is recreated each render
   }, [project.name]);
 
   const handleAdd = async (event) => {

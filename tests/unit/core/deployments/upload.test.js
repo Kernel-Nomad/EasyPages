@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import zlib from 'node:zlib';
 import AdmZip from 'adm-zip';
 import { uploadProjectBundle } from '../../../../src/core/deployments/upload.js';
 
@@ -13,6 +14,51 @@ const writeZip = (dir, name, addFiles) => {
     zip.addFile(entryPath, Buffer.isBuffer(data) ? data : Buffer.from(data, 'utf8'));
   }
   zip.writeZip(zipPath);
+  return zipPath;
+};
+
+/** AdmZip normalises `../` on addFile; craft the local header by hand for zip-slip tests. */
+const writeRawZip = (dir, name, entries) => {
+  const zipPath = path.join(dir, name);
+  const locals = [];
+  const centrals = [];
+  let offset = 0;
+
+  for (const { path: entryPath, data } of entries) {
+    const nameBuf = Buffer.from(entryPath, 'utf8');
+    const dataBuf = Buffer.isBuffer(data) ? data : Buffer.from(data, 'utf8');
+    const crc = zlib.crc32(dataBuf);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt32LE(crc >>> 0, 14);
+    local.writeUInt32LE(dataBuf.length, 18);
+    local.writeUInt32LE(dataBuf.length, 22);
+    local.writeUInt16LE(nameBuf.length, 26);
+    const localFull = Buffer.concat([local, nameBuf, dataBuf]);
+    locals.push(localFull);
+
+    const cen = Buffer.alloc(46);
+    cen.writeUInt32LE(0x02014b50, 0);
+    cen.writeUInt16LE(20, 4);
+    cen.writeUInt16LE(20, 6);
+    cen.writeUInt32LE(crc >>> 0, 16);
+    cen.writeUInt32LE(dataBuf.length, 20);
+    cen.writeUInt32LE(dataBuf.length, 24);
+    cen.writeUInt16LE(nameBuf.length, 28);
+    cen.writeUInt32LE(offset, 42);
+    centrals.push(Buffer.concat([cen, nameBuf]));
+    offset += localFull.length;
+  }
+
+  const centralDir = Buffer.concat(centrals);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(entries.length, 8);
+  end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(centralDir.length, 12);
+  end.writeUInt32LE(offset, 16);
+  writeFileSync(zipPath, Buffer.concat([...locals, centralDir, end]));
   return zipPath;
 };
 
@@ -52,7 +98,7 @@ test('uploadProjectBundle processes a valid ZIP and calls Cloudflare', async () 
       },
     });
 
-    assert.deepEqual(result, { success: true, message: 'Despliegue realizado correctamente' });
+    assert.deepEqual(result, { success: true, message: 'Deployment completed successfully' });
     assert.equal(calls.uploadAssets, 1);
     assert.equal(calls.post, 1);
   } finally {
@@ -119,6 +165,44 @@ test('uploadProjectBundle rejects a ZIP whose real uncompressed total exceeds th
           },
         }),
       (err) => err.status === 413,
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('uploadProjectBundle rejects a ZIP that mixes safe files with zip-slip paths', async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'ep-upload-'));
+  try {
+    const zipPath = writeRawZip(dir, 'slip.zip', [
+      { path: 'index.html', data: '<p>ok</p>' },
+      { path: '../evil.txt', data: 'nope' },
+    ]);
+
+    const mockCloudflare = {
+      get: async () => ({ data: { result: { jwt: 'j' } } }),
+      uploadAssets: async () => {
+        assert.fail('must not upload any assets from a tainted ZIP');
+      },
+      post: async () => {
+        assert.fail('must not create a deployment from a tainted ZIP');
+      },
+    };
+
+    await assert.rejects(
+      () =>
+        uploadProjectBundle({
+          cloudflare: mockCloudflare,
+          filePath: zipPath,
+          projectName: 'demo',
+          uploadLimits: {
+            maxZipEntryBytes: 1024,
+            maxTotalUncompressedBytes: 10_000,
+            maxUploadBatchBytes: 1024,
+            maxUploadBatchEntryCount: 50,
+          },
+        }),
+      (err) => err.status === 400 && /unsafe path/i.test(err.message),
     );
   } finally {
     rmSync(dir, { recursive: true, force: true });

@@ -29,7 +29,7 @@ export const createUploadMiddleware = ({
         return;
       }
 
-      callback(createHttpError(400, 'Solo se permiten archivos ZIP.'));
+      callback(createHttpError(400, 'Only ZIP files are allowed.'));
     },
   });
 };

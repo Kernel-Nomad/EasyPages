@@ -38,7 +38,7 @@ test('with credentials it exposes the username and token version', () => {
   assert.deepEqual(state.getSnapshot(), { configured: true, tokenVersion: 3, username: 'admin' });
 });
 
-test('once configured it never reads the file again', () => {
+test('while the TTL holds it does not re-read the file', () => {
   const store = makeStore({ username: 'admin', password_hash: 'x', token_version: 1 });
   const clock = makeClock();
   const state = createAuthState({ store, now: clock.now });
@@ -46,11 +46,9 @@ test('once configured it never reads the file again', () => {
   state.getSnapshot();
   assert.equal(store.reads, 1);
 
-  clock.advance(NEGATIVE_TTL_MS * 10);
   state.getSnapshot();
   state.getSnapshot();
 
-  // The middleware hot path cannot touch disk on every request.
   assert.equal(store.reads, 1);
 });
 
@@ -72,7 +70,7 @@ test('while unconfigured it re-reads after the negative TTL', () => {
   assert.equal(store.reads, 2);
 });
 
-test('a cached true never degrades back to false', () => {
+test('after the TTL a successful null read degrades a configured snapshot', () => {
   const store = makeStore({ username: 'admin', password_hash: 'x', token_version: 1 });
   const clock = makeClock();
   const state = createAuthState({ store, now: clock.now });
@@ -80,14 +78,30 @@ test('a cached true never degrades back to false', () => {
   state.prime();
   assert.equal(state.getSnapshot().configured, true);
 
-  // A transient read failure must not reopen the setup wizard.
   store.record = null;
-  clock.advance(NEGATIVE_TTL_MS * 10);
+  clock.advance(NEGATIVE_TTL_MS);
 
-  assert.equal(state.getSnapshot().configured, true);
+  assert.deepEqual(state.getSnapshot(), { configured: false, tokenVersion: 0, username: null });
 });
 
-test('a read error does not propagate: it degrades to "not configured"', () => {
+test('a transient read error does not degrade a configured snapshot', () => {
+  const store = makeStore({ username: 'admin', password_hash: 'x', token_version: 1 });
+  const clock = makeClock();
+  const state = createAuthState({ store, now: clock.now });
+
+  state.prime();
+  assert.equal(state.getSnapshot().configured, true);
+
+  store.read = () => {
+    store.reads += 1;
+    throw new Error('EIO');
+  };
+  clock.advance(NEGATIVE_TTL_MS);
+
+  assert.deepEqual(state.getSnapshot(), { configured: true, tokenVersion: 1, username: 'admin' });
+});
+
+test('a read error on first look does not propagate: it degrades to "not configured"', () => {
   const store = {
     read() {
       throw new Error('EACCES');

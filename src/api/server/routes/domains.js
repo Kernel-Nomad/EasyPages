@@ -16,7 +16,7 @@ export const createDomainsRouter = ({ cloudflare }) => {
       const response = await cloudflare.get(`/pages/projects/${projectName}/domains`);
       res.json(response.data.result);
     } catch (error) {
-      sendErrorResponse(res, error, 'Error al cargar los dominios', req);
+      sendErrorResponse(res, error, 'Failed to load domains', req);
     }
   });
 
@@ -50,7 +50,7 @@ export const createDomainsRouter = ({ cloudflare }) => {
       await cloudflare.delete(`/pages/projects/${projectName}/domains/${domainName}`);
       res.json({ success: true });
     } catch (error) {
-      sendErrorResponse(res, error, 'Error al eliminar el dominio', req);
+      sendErrorResponse(res, error, 'Failed to delete the domain', req);
     }
   });
 

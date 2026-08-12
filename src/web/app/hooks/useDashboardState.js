@@ -56,7 +56,7 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) =
         return;
       }
       if (!isSecurityError(error)) {
-        console.error('Error cargando despliegues:', error);
+        console.error('Error loading deployments:', error);
         onNotify('error', error.message || t('deploy_load_error'));
       }
     } finally {
@@ -81,6 +81,7 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) =
       };
     }
     return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadDeployments is recreated each render
   }, [selectedProject, view]);
 
   useEffect(() => () => {

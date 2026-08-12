@@ -61,16 +61,27 @@ There is no reset email and no recovery code. Running this already requires host
 which is strictly more than the account grants:
 
 ```bash
-docker compose down
 rm ./easypages-data/credentials.json
-docker compose up -d
 ```
 
-The setup wizard comes back. The session secret is untouched, so nothing else is disturbed.
+Within a few seconds the in-process auth cache notices the file is gone: `/api/auth/status`
+returns `setup_complete: false`, and authenticated API calls start answering
+`setup_required`. The setup wizard comes back. The session secret is untouched, so nothing
+else is disturbed. A container restart is not required, but still works if you prefer a
+clean process.
+
+## Legacy `/logout`
+
+`POST /logout` (without `/api`) clears the session cookie and redirects to `/` for old
+healthchecks and bookmarks. It does not require a CSRF token: the cookie is `SameSite=Lax`,
+so a cross-site POST from another origin does not carry it. The SPA uses
+`POST /api/auth/logout`, which does enforce CSRF.
 
 ## Hardening checklist
 
 - Put EasyPages behind a reverse proxy with TLS and set `SESSION_COOKIE_SECURE=true`.
+  Direct HTTP installs (including the CI smoke test) must set `SESSION_COOKIE_SECURE=false`,
+  or browsers and curl will refuse to send the session cookie.
 - Exposed directly, with no proxy in front, set `TRUST_PROXY=false` so the rate limiter
   keys on the real socket rather than a header the client controls.
 - Scope the Cloudflare API token to *Account → Cloudflare Pages → Edit* and nothing else.
@@ -87,3 +98,6 @@ The setup wizard comes back. The session secret is untouched, so nothing else is
 - The bundle (`dist/`) is served without authentication so the SPA can draw its own login
   screen. It contains no secrets — there is no build-time environment injection — but it
   does reveal that this is EasyPages and what its API surface looks like.
+- Dev-only tooling (Vite, Vitest, esbuild) is not shipped in the image. Advisories that
+  only affect `pnpm run dev:ui` or the Vitest UI do not reach production; still upgrade
+  them when convenient.

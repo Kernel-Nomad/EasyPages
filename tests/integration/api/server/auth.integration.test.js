@@ -280,6 +280,24 @@ test('a session from a wiped and recreated account is rejected', () =>
     }
   }));
 
+test('deleting credentials.json without a restart revokes active sessions', () =>
+  withFreshApp(async ({ client }) => {
+    await client.completeSetup({ username: 'admin' });
+    assert.equal((await client.request('/api/projects')).status, 200);
+
+    fs.rmSync(env.credentialsPath, { force: true });
+    // authState only re-reads after the negative TTL; wait past it without restarting.
+    await new Promise((resolve) => setTimeout(resolve, 5100));
+
+    const status = await client.status();
+    assert.equal(status.body.setup_complete, false);
+    assert.equal(status.body.authenticated, false);
+
+    const gated = await client.request('/api/projects');
+    assert.equal(gated.status, 401);
+    assert.equal((await gated.json()).code, 'setup_required');
+  }));
+
 test('legacy routes: GET /login redirects to / and POST /logout ends the session', () =>
   withFreshApp(async ({ app, client }) => {
     await client.completeSetup();

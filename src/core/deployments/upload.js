@@ -40,7 +40,7 @@ export const uploadProjectBundle = async ({
   const zipEntries = zip.getEntries();
 
   if (zipEntries.length > limits.maxZipEntryCount) {
-    throw createHttpError(413, 'El archivo ZIP contiene demasiados archivos.');
+    throw createHttpError(413, 'The ZIP archive contains too many files.');
   }
 
   const manifest = {};
@@ -65,13 +65,18 @@ export const uploadProjectBundle = async ({
     }
 
     if (!isSafeZipEntry(entry.entryName, SAFE_VIRTUAL_ROOT)) {
-      console.warn(`⚠️ Ignorando archivo malicioso (Zip Slip): ${entry.entryName}`);
-      continue;
+      throw createHttpError(
+        400,
+        'The ZIP archive contains an unsafe path and was rejected.',
+      );
     }
 
     const normalizedEntryPath = normalizeZipEntryPath(entry.entryName, SAFE_VIRTUAL_ROOT);
     if (!normalizedEntryPath) {
-      continue;
+      throw createHttpError(
+        400,
+        'The ZIP archive contains an unsafe path and was rejected.',
+      );
     }
 
     const declaredSize = entry.header.size || 0;
@@ -129,5 +134,5 @@ export const uploadProjectBundle = async ({
     headers: formData.getHeaders(),
   });
 
-  return { success: true, message: 'Despliegue realizado correctamente' };
+  return { success: true, message: 'Deployment completed successfully' };
 };

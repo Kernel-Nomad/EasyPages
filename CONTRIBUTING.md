@@ -126,7 +126,7 @@ Changes here need extra care and matching tests:
 
 ## Dependency and dev-server security
 
-- `.github/workflows/security-audit.yml` runs `pnpm audit --prod --audit-level high` weekly, blocking, plus a non-blocking full-tree pass. Reports may flag **Vite / esbuild** (dev dependency) with fixes that require a **semver-major** Vite upgrade; that advisory concerns the **development server** (`pnpm run dev:ui`), not the static UI served in production by Express. Do not expose the Vite dev server to untrusted networks. Plan major Vite upgrades when you can absorb breaking changes; until then, treat the risk as dev-environment only.
+- `.github/workflows/security-audit.yml` runs `pnpm audit --prod --audit-level high` weekly, blocking, plus a non-blocking full-tree pass. Production advisories (e.g. `adm-zip`) must be fixed promptly. Dev-only reports (Vite / Vitest / esbuild) concern `pnpm run dev:ui` or the Vitest UI, not the static UI Express serves in production. Do not expose the Vite dev server to untrusted networks.
 
 ## Pull requests
 
