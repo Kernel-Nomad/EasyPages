@@ -21,7 +21,7 @@
     "check": "node scripts/syntax-check.mjs"
   },
   "dependencies": {
-    "adm-zip": "^0.5.16",
+    "adm-zip": "^0.6.0",
     "axios": "^1.7.9",
     "cookie-session": "^2.1.1",
     "dotenv": "^16.4.7",
