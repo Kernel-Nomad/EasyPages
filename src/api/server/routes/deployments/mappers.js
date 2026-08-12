@@ -4,9 +4,18 @@ export const toDeleteDeploymentsInput = (req) => ({
 });
 
 export const toDeleteDeploymentsResponse = (result) => ({
-  message: 'Lote procesado',
+  message: 'Batch processed',
   ...result,
 });
+
+export const toListDeploymentsInput = (req) => {
+  const rawPage = Number.parseInt(req.query?.page, 10);
+  const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
+  return {
+    page,
+    projectName: req.params.projectName,
+  };
+};
 
 export const toProjectInput = (req) => ({
   projectName: req.params.projectName,

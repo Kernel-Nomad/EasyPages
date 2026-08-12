@@ -33,11 +33,17 @@ const rateLimitHandler = (req, res) => {
 };
 
 /**
- * Only a failed credential check consumes the budget. A 422 is the wizard rejecting a short
- * password, a 409 is a state answer, a 403 is a stale CSRF token: charging any of them
- * locked operators out of their own fresh install.
+ * Only a failed credential check consumes the budget — except /setup during the claim
+ * window, where every hashing attempt must count. A 422 is validation, a 409 is
+ * already-done; charging those locked operators out of their own fresh install.
  */
-const requestWasSuccessful = (req, res) => res.statusCode !== 401;
+const requestWasSuccessful = (req, res) => {
+  const path = req.path || '';
+  if (path === '/setup' || path.endsWith('/setup')) {
+    return res.statusCode === 409 || res.statusCode === 422;
+  }
+  return res.statusCode !== 401;
+};
 
 /**
  * One shared budget for /login, /setup and /credentials: guessing `current_password` is

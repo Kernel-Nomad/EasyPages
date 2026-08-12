@@ -115,8 +115,11 @@ export const fetchProjects = () => fetch('/api/projects');
 export const createProject = ({ csrfToken, name }) =>
   easyPagesFetch('/api/projects', { method: 'POST', csrfToken, json: { name } });
 
-export const fetchDeployments = (projectName, { signal } = {}) =>
-  easyPagesFetch(`${projectApiPath(projectName)}/deployments`, { signal });
+export const fetchDeployments = (projectName, { page = 1, signal } = {}) =>
+  easyPagesFetch(
+    `${projectApiPath(projectName)}/deployments?page=${encodeURIComponent(page)}`,
+    { signal },
+  );
 
 export const triggerDeployment = ({ projectName, csrfToken }) =>
   easyPagesFetch(`${projectApiPath(projectName)}/deployments`, { method: 'POST', csrfToken });
@@ -239,16 +242,28 @@ const requestApi = async (
 /**
  * Tier 2 — the login and setup forms. A 401 here means *wrong credentials*, so it must
  * stay a form error. Routing it through `onUnauthorized` would ask the SPA to show the
- * login screen it is already showing.
+ * login screen it is already showing. A stale CSRF token is refreshed and retried once.
  */
 const publicAuthRequest = async (requestFactory, { fallbackMessage } = {}) => {
-  const response = await requestFactory();
+  const executeRequest = async (csrfTokenOverride, hasRetried = false) => {
+    const response = await requestFactory(csrfTokenOverride);
 
-  if (!response.ok) {
-    throw await buildApiError(response, fallbackMessage);
-  }
+    if (response.status === 403) {
+      const refreshedCsrfToken = !hasRetried ? await apiHooks.onForbidden?.(response) : null;
+      if (refreshedCsrfToken) {
+        return executeRequest(refreshedCsrfToken, true);
+      }
+      throw await buildApiError(response, fallbackMessage, 'SECURITY_ERROR');
+    }
 
-  return parseResponsePayload(response);
+    if (!response.ok) {
+      throw await buildApiError(response, fallbackMessage);
+    }
+
+    return parseResponsePayload(response);
+  };
+
+  return executeRequest();
 };
 
 /**
@@ -256,19 +271,32 @@ const publicAuthRequest = async (requestFactory, { fallbackMessage } = {}) => {
  * current password is wrong" (a form error) or "your session expired while the dialog was
  * open" (leave the screen). Only the codes in SESSION_LOST_CODES do the latter; without
  * the distinction the dialog used to sit there saying "session expired" with no way out.
+ * Stale CSRF is refreshed and retried once, same as the other tiers.
  */
 const sessionAwareRequest = async (requestFactory, { fallbackMessage } = {}) => {
-  const response = await requestFactory();
+  const executeRequest = async (csrfTokenOverride, hasRetried = false) => {
+    const response = await requestFactory(csrfTokenOverride);
 
-  if (!response.ok) {
-    const error = await buildApiError(response, fallbackMessage);
-    if (response.status === 401 && SESSION_LOST_CODES.has(error.code)) {
-      apiHooks.onUnauthorized?.(response);
+    if (response.status === 403) {
+      const refreshedCsrfToken = !hasRetried ? await apiHooks.onForbidden?.(response) : null;
+      if (refreshedCsrfToken) {
+        return executeRequest(refreshedCsrfToken, true);
+      }
+      throw await buildApiError(response, fallbackMessage, 'SECURITY_ERROR');
     }
-    throw error;
-  }
 
-  return parseResponsePayload(response);
+    if (!response.ok) {
+      const error = await buildApiError(response, fallbackMessage);
+      if (response.status === 401 && SESSION_LOST_CODES.has(error.code)) {
+        apiHooks.onUnauthorized?.(response);
+      }
+      throw error;
+    }
+
+    return parseResponsePayload(response);
+  };
+
+  return executeRequest();
 };
 
 export const easyPagesClient = {
@@ -282,8 +310,8 @@ export const easyPagesClient = {
       retryOnForbidden: true,
     }),
   changeCredentials: ({ csrfToken, currentPassword, newPassword, username }) =>
-    sessionAwareRequest(() => changeCredentials({
-      csrfToken,
+    sessionAwareRequest((nextCsrfToken) => changeCredentials({
+      csrfToken: nextCsrfToken || csrfToken,
       currentPassword,
       newPassword,
       username,
@@ -324,8 +352,8 @@ export const easyPagesClient = {
     requestApi(() => fetchDeploymentDeleteCandidates(projectName), {
       fallbackMessage: 'Error loading deletable deployments.',
     }),
-  fetchDeployments: (projectName, { signal } = {}) =>
-    requestApi(() => fetchDeployments(projectName, { signal }), {
+  fetchDeployments: (projectName, { page = 1, signal } = {}) =>
+    requestApi(() => fetchDeployments(projectName, { page, signal }), {
       fallbackMessage: 'Error loading deployments.',
     }),
   fetchDomains: (projectName) =>
@@ -341,15 +369,23 @@ export const easyPagesClient = {
       fallbackMessage: 'Error loading projects.',
     }),
   login: ({ csrfToken, password, username }) =>
-    publicAuthRequest(() => login({ csrfToken, password, username }), {
+    publicAuthRequest((nextCsrfToken) => login({
+      csrfToken: nextCsrfToken || csrfToken,
+      password,
+      username,
+    }), {
       fallbackMessage: 'Could not sign in.',
     }),
   logout: (csrfToken) =>
-    publicAuthRequest(() => logout(csrfToken), {
+    publicAuthRequest((nextCsrfToken) => logout(nextCsrfToken || csrfToken), {
       fallbackMessage: 'Error signing out.',
     }),
   setupCredentials: ({ csrfToken, password, username }) =>
-    publicAuthRequest(() => setupCredentials({ csrfToken, password, username }), {
+    publicAuthRequest((nextCsrfToken) => setupCredentials({
+      csrfToken: nextCsrfToken || csrfToken,
+      password,
+      username,
+    }), {
       fallbackMessage: 'Could not complete the initial setup.',
     }),
   triggerDeployment: ({ csrfToken, projectName }) =>

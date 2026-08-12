@@ -1,4 +1,5 @@
 import { AlertCircle, CheckCircle2, Info, X, XCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const stylesByType = {
   error: {
@@ -24,6 +25,8 @@ const stylesByType = {
 };
 
 const NotificationToast = ({ notification, onDismiss }) => {
+  const { t } = useTranslation();
+
   if (!notification) {
     return null;
   }
@@ -31,7 +34,10 @@ const NotificationToast = ({ notification, onDismiss }) => {
   const style = stylesByType[notification.type] || stylesByType.info;
 
   return (
-    <div className={`fixed top-20 right-4 z-50 max-w-sm rounded-lg border p-4 shadow-lg animate-in slide-in-from-right duration-300 ${style.container}`}>
+    <div
+      role="alert"
+      className={`fixed top-20 right-4 z-50 max-w-sm rounded-lg border p-4 shadow-lg animate-in slide-in-from-right duration-300 ${style.container}`}
+    >
       <div className="flex items-start gap-3">
         <div className={`rounded-full p-1 ${style.icon}`}>
           <style.Icon size={16} />
@@ -41,7 +47,7 @@ const NotificationToast = ({ notification, onDismiss }) => {
           type="button"
           onClick={onDismiss}
           className="rounded-full p-1 text-current/70 transition-colors hover:bg-black/5 hover:text-current"
-          aria-label="Dismiss notification"
+          aria-label={t('dismiss_notification')}
         >
           <X size={14} />
         </button>

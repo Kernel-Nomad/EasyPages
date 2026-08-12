@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Clock, ExternalLink, GitBranch, Hash, Loader2, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { easyPagesClient } from '../../../../api/client/easyPagesApi.js';
@@ -6,7 +6,7 @@ import { isSecurityError } from '../../../app/hooks/useAuthSession.js';
 import StatusBadge from '../../../shared/ui/StatusBadge';
 
 const DeploymentItem = ({ deployment, isSelected, onToggle, isProduction }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   return (
     <div className={`flex items-center justify-between p-4 border-b border-gray-100 last:border-0 transition-colors group ${isSelected ? 'bg-orange-50' : 'hover:bg-gray-50'}`}>
@@ -30,7 +30,7 @@ const DeploymentItem = ({ deployment, isSelected, onToggle, isProduction }) => {
             </span>
             {isProduction && (
               <span className="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
-                Production
+                {t('production_badge')}
               </span>
             )}
           </div>
@@ -38,7 +38,7 @@ const DeploymentItem = ({ deployment, isSelected, onToggle, isProduction }) => {
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
             <span className="flex items-center gap-1 bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">
               <GitBranch size={10} />
-              {deployment.deployment_trigger?.metadata?.branch || deployment.branch || 'main'}
+              {deployment.deployment_trigger?.metadata?.branch || deployment.branch || t('default_branch')}
             </span>
 
             <span className="flex items-center gap-1 font-mono">
@@ -48,7 +48,7 @@ const DeploymentItem = ({ deployment, isSelected, onToggle, isProduction }) => {
 
             <span className="flex items-center gap-1">
               <Clock size={10} />
-              {new Date(deployment.created_on).toLocaleString()}
+              {new Date(deployment.created_on).toLocaleString(i18n.language)}
             </span>
           </div>
         </div>
@@ -64,6 +64,7 @@ const DeploymentItem = ({ deployment, isSelected, onToggle, isProduction }) => {
             rel="noreferrer"
             className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-full"
             title={t('view_deploy')}
+            aria-label={t('view_deploy')}
           >
             <ExternalLink size={18} />
           </a>
@@ -75,6 +76,10 @@ const DeploymentItem = ({ deployment, isSelected, onToggle, isProduction }) => {
 
 const DeploymentList = ({
   deployments,
+  deploymentsHasMore,
+  loadingMore,
+  onLoadMore,
+  productionDeploymentId,
   projectName,
   csrfToken,
   onConfirm,
@@ -85,10 +90,19 @@ const DeploymentList = ({
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const selectAllRef = useRef(null);
 
   useEffect(() => {
     setSelectedIds(new Set());
   }, [deployments]);
+
+  useEffect(() => {
+    if (!selectAllRef.current) {
+      return;
+    }
+    const partial = selectedIds.size > 0 && selectedIds.size < deployments.length;
+    selectAllRef.current.indeterminate = partial;
+  }, [selectedIds, deployments.length]);
 
   const handleToggle = (id) => {
     const newSet = new Set(selectedIds);
@@ -107,6 +121,18 @@ const DeploymentList = ({
     } else {
       setSelectedIds(new Set());
     }
+  };
+
+  const notifyDeleteResult = (result) => {
+    if (result.success === 0 && result.failed === 0 && result.skipped > 0) {
+      onNotify('info', t('deploy_delete_skipped_only'));
+      return;
+    }
+    if (result.failed > 0) {
+      onNotify('warning', t('deploy_delete_partial', result));
+      return;
+    }
+    onNotify('success', t('deploy_delete_success', { count: result.success }));
   };
 
   const handleDeleteSelected = async () => {
@@ -130,12 +156,7 @@ const DeploymentList = ({
         deploymentIds: Array.from(selectedIds),
       });
 
-      if (result.failed > 0) {
-        onNotify('warning', t('deploy_delete_partial', result));
-      } else {
-        onNotify('success', t('deploy_delete_success', { count: result.success }));
-      }
-
+      notifyDeleteResult(result);
       await onRefresh();
     } catch (error) {
       if (!isSecurityError(error)) {
@@ -166,16 +187,31 @@ const DeploymentList = ({
       const data = await easyPagesClient.fetchDeploymentDeleteCandidates(projectName);
       const idsToDelete = data.ids || [];
 
+      if (data.truncated || data.fetchError) {
+        const proceed = await onConfirm({
+          title: t('confirm_delete_truncated_title'),
+          message: t('confirm_delete_truncated'),
+          confirmLabel: t('continue'),
+          destructive: true,
+        });
+        if (!proceed) {
+          setIsDeleting(false);
+          setProgress({ current: 0, total: 0 });
+          return;
+        }
+      }
+
       if (idsToDelete.length === 0) {
         onNotify('info', t('deploy_delete_none'));
         setIsDeleting(false);
+        setProgress({ current: 0, total: 0 });
         return;
       }
 
       setProgress({ current: 0, total: idsToDelete.length });
 
       const chunkSize = 5;
-      const results = { failed: 0, success: 0 };
+      const results = { failed: 0, skipped: 0, success: 0 };
 
       for (let index = 0; index < idsToDelete.length; index += chunkSize) {
         const chunk = idsToDelete.slice(index, index + chunkSize);
@@ -187,6 +223,7 @@ const DeploymentList = ({
 
         results.failed += chunkResult.failed;
         results.success += chunkResult.success;
+        results.skipped += chunkResult.skipped || 0;
 
         setProgress((currentProgress) => ({
           ...currentProgress,
@@ -194,12 +231,7 @@ const DeploymentList = ({
         }));
       }
 
-      if (results.failed > 0) {
-        onNotify('warning', t('deploy_delete_partial', results));
-      } else {
-        onNotify('success', t('deploy_delete_success', { count: results.success }));
-      }
-
+      notifyDeleteResult(results);
       await onRefresh();
     } catch (error) {
       if (!isSecurityError(error)) {
@@ -235,6 +267,7 @@ const DeploymentList = ({
       <div className="p-4 bg-gray-50 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <input
+            ref={selectAllRef}
             type="checkbox"
             checked={selectedIds.size > 0 && selectedIds.size === deployments.length}
             onChange={handleSelectAll}
@@ -247,6 +280,7 @@ const DeploymentList = ({
 
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={handleDeleteAll}
             disabled={isDeleting || deployments.length === 0}
             className="text-sm px-3 py-1.5 rounded-md border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-50 flex items-center gap-2"
@@ -255,12 +289,13 @@ const DeploymentList = ({
             {t('delete_all_non_prod')}
           </button>
           <button
+            type="button"
             onClick={handleDeleteSelected}
             disabled={isDeleting || selectedIds.size === 0}
             className="text-sm px-3 py-1.5 rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
           >
             {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-            {t('delete_selected')}
+            {t('delete_selected', { count: selectedIds.size })}
           </button>
         </div>
       </div>
@@ -271,15 +306,30 @@ const DeploymentList = ({
           <p>{t('no_deployments')}</p>
         </div>
       ) : (
-        deployments.map((deployment, index) => (
-          <DeploymentItem
-            key={deployment.id}
-            deployment={deployment}
-            isSelected={selectedIds.has(deployment.id)}
-            onToggle={handleToggle}
-            isProduction={index === 0}
-          />
-        ))
+        <>
+          {deployments.map((deployment) => (
+            <DeploymentItem
+              key={deployment.id}
+              deployment={deployment}
+              isSelected={selectedIds.has(deployment.id)}
+              onToggle={handleToggle}
+              isProduction={deployment.id === productionDeploymentId}
+            />
+          ))}
+          {deploymentsHasMore && (
+            <div className="p-4 border-t border-gray-100 flex justify-center">
+              <button
+                type="button"
+                onClick={onLoadMore}
+                disabled={loadingMore || isDeleting}
+                className="text-sm px-4 py-2 rounded-md border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2"
+              >
+                {loadingMore ? <Loader2 size={14} className="animate-spin" /> : null}
+                {t('load_more_deployments')}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

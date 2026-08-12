@@ -14,7 +14,7 @@ test('isValidProjectName', () => {
 
 test('validateBuildConfig', () => {
   assert.equal(validateBuildConfig(null), 'The build configuration is invalid.');
-  assert.equal(validateBuildConfig({}), 'Debe indicar al menos un valor de build_config.');
+  assert.equal(validateBuildConfig({}), 'Provide at least one build_config value.');
   assert.equal(validateBuildConfig({ command: 'npm run build' }), null);
 });
 

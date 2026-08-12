@@ -6,6 +6,7 @@ import { useFocusTrap } from '../hooks/useFocusTrap';
 const ConfirmDialog = ({ confirmation, onCancel, onConfirm }) => {
   const { t } = useTranslation();
   const dialogId = useId();
+  const descriptionId = useId();
   // Unconditional: the early return below happens after every hook has run.
   const { dialogRef } = useFocusTrap({ open: Boolean(confirmation), onClose: onCancel });
 
@@ -20,6 +21,7 @@ const ConfirmDialog = ({ confirmation, onCancel, onConfirm }) => {
         role="dialog"
         aria-modal="true"
         aria-labelledby={dialogId}
+        aria-describedby={descriptionId}
         className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl animate-in zoom-in-95 duration-200"
       >
         <div className="flex items-start gap-3">
@@ -28,7 +30,7 @@ const ConfirmDialog = ({ confirmation, onCancel, onConfirm }) => {
           </div>
           <div className="space-y-2">
             <h3 id={dialogId} className="text-lg font-semibold text-gray-900">{confirmation.title}</h3>
-            <p className="whitespace-pre-line text-sm text-gray-600">{confirmation.message}</p>
+            <p id={descriptionId} className="whitespace-pre-line text-sm text-gray-600">{confirmation.message}</p>
           </div>
         </div>
 

@@ -67,7 +67,18 @@ expect_code "setup" 201 -X POST \
   -d '{"username":"ciadmin","password":"ci-only-password"}' \
   -b /tmp/jar.txt -c /tmp/jar.txt "${BASE}/api/auth/setup"
 
-# 5. Replaying it is 409 for good: the claim window closes.
+# 5. Login with the same credentials must also succeed (covers the post-setup path).
+curl -fsS -b /tmp/jar.txt -c /tmp/jar.txt -o /tmp/status_login.json \
+  "${BASE}/api/auth/status"
+csrf_login=$(sed -n 's/.*"csrf_token":"\([^"]*\)".*/\1/p' /tmp/status_login.json)
+[ -n "$csrf_login" ] || { echo "::error::post-setup status returned no csrf_token"; exit 1; }
+expect_code "login" 200 -X POST \
+  -H 'Content-Type: application/json' \
+  -H "CSRF-Token: $csrf_login" \
+  -d '{"username":"ciadmin","password":"ci-only-password"}' \
+  -b /tmp/jar.txt -c /tmp/jar.txt "${BASE}/api/auth/login"
+
+# 6. Replaying setup is 409 for good: the claim window closes.
 curl -fsS -b /tmp/jar.txt -c /tmp/jar.txt -o /tmp/status2.json \
   "${BASE}/api/auth/status"
 csrf2=$(sed -n 's/.*"csrf_token":"\([^"]*\)".*/\1/p' /tmp/status2.json)
@@ -77,7 +88,7 @@ expect_code "setup replay" 409 -X POST \
   -d '{"username":"intruso","password":"otra-contrasena"}' \
   -b /tmp/jar.txt "${BASE}/api/auth/setup"
 
-# 6. The session now passes the auth wall. Asserted on the error code rather
+# 7. The session now passes the auth wall. Asserted on the error code rather
 #    than the status: behind the wall the request reaches Cloudflare, which
 #    rejects the fake token with a status of its own choosing.
 curl -s -b /tmp/jar.txt -o /tmp/projects.json "${BASE}/api/projects"
@@ -86,7 +97,7 @@ if grep -qE '"code":"(setup_required|session_expired)"' /tmp/projects.json; then
   exit 1
 fi
 
-# 7. The SPA fallback must not swallow API 404s, and must not answer a stale
+# 8. The SPA fallback must not swallow API 404s, and must not answer a stale
 #    hashed asset with the shell — that shows up as a blank page.
 #    The CSRF token is required: it is checked before routing, so without it this
 #    would be a 403 and would never reach the question being asked.
@@ -100,15 +111,15 @@ expect_code "missing asset" 404 "${BASE}/assets/index-deadbeef.js"
 # ...but a navigation route does have to get the shell.
 expect_code "navigation route" 200 "${BASE}/projects"
 
-# 8. The legacy /login redirect keeps an old curl'd docker-compose.yml healthy:
+# 9. The legacy /login redirect keeps an old curl'd docker-compose.yml healthy:
 #    its probe follows redirects and must still land on a 200.
 expect_code "legacy /login (followed)" 200 -L "${BASE}/login"
 
-# 9. The credential file must not be group- or world-readable.
+# 10. The credential file must not be group- or world-readable.
 mode=$(docker exec "$NAME" stat -c '%a' /data/credentials.json)
 [ "$mode" = "600" ] || { echo "::error::credentials.json is $mode, expected 600"; exit 1; }
 
-# 10. The image's own healthcheck has to agree.
+# 11. The image's own healthcheck has to agree.
 for _ in $(seq 1 20); do
   health=$(docker inspect -f '{{.State.Health.Status}}' "$NAME")
   [ "$health" = "starting" ] || break
@@ -116,4 +127,4 @@ for _ in $(seq 1 20); do
 done
 [ "$health" = "healthy" ] || { echo "::error::container health is $health"; exit 1; }
 
-echo "Cold start, setup wizard, session, SPA fallback and healthcheck all OK"
+echo "Cold start, setup wizard, login, session, SPA fallback and healthcheck all OK"

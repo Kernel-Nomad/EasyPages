@@ -21,7 +21,8 @@ const AppHeader = ({ language, onLogout, onOpenAccount, onToggleLanguage, userna
           <button
             onClick={onToggleLanguage}
             className={ACTION_CLASS}
-            title="Cambiar idioma / Change language"
+            title={t('toggle_language')}
+            aria-label={t('toggle_language')}
           >
             <Languages size={18} />
             <span className="font-medium uppercase">{language}</span>

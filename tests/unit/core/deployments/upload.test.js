@@ -208,3 +208,72 @@ test('uploadProjectBundle rejects a ZIP that mixes safe files with zip-slip path
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('uploadProjectBundle rejects inflated entries that exceed the size cap', async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'ep-upload-'));
+  try {
+    const zeros = Buffer.alloc(64 * 1024, 0);
+    const compressed = zlib.deflateRawSync(zeros);
+    const nameBuf = Buffer.from('bomb.bin', 'utf8');
+    const crc = zlib.crc32(zeros);
+
+    // Local header with a lying small uncompressed size (classic zip-bomb signal).
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(8, 8); // DEFLATE
+    local.writeUInt32LE(crc >>> 0, 14);
+    local.writeUInt32LE(compressed.length, 18);
+    local.writeUInt32LE(16, 22); // lie: claim only 16 uncompressed bytes
+    local.writeUInt16LE(nameBuf.length, 26);
+    const localFull = Buffer.concat([local, nameBuf, compressed]);
+
+    const cen = Buffer.alloc(46);
+    cen.writeUInt32LE(0x02014b50, 0);
+    cen.writeUInt16LE(20, 4);
+    cen.writeUInt16LE(20, 6);
+    cen.writeUInt16LE(8, 10);
+    cen.writeUInt32LE(crc >>> 0, 16);
+    cen.writeUInt32LE(compressed.length, 20);
+    cen.writeUInt32LE(16, 24);
+    cen.writeUInt16LE(nameBuf.length, 28);
+
+    const end = Buffer.alloc(22);
+    end.writeUInt32LE(0x06054b50, 0);
+    end.writeUInt16LE(1, 8);
+    end.writeUInt16LE(1, 10);
+    end.writeUInt32LE(cen.length + nameBuf.length, 12);
+    end.writeUInt32LE(localFull.length, 16);
+
+    const zipPath = path.join(dir, 'bomb.zip');
+    writeFileSync(zipPath, Buffer.concat([localFull, cen, nameBuf, end]));
+
+    const mockCloudflare = {
+      get: async () => ({ data: { result: { jwt: 'j' } } }),
+      uploadAssets: async () => {
+        assert.fail('must not upload a zip bomb');
+      },
+      post: async () => {
+        assert.fail('must not deploy a zip bomb');
+      },
+    };
+
+    await assert.rejects(
+      () =>
+        uploadProjectBundle({
+          cloudflare: mockCloudflare,
+          filePath: zipPath,
+          projectName: 'demo',
+          uploadLimits: {
+            maxZipEntryBytes: 1024,
+            maxTotalUncompressedBytes: 10_000,
+            maxUploadBatchBytes: 1024,
+            maxUploadBatchEntryCount: 50,
+          },
+        }),
+      (err) => err.status === 413,
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

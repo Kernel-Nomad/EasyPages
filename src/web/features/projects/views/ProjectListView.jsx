@@ -29,6 +29,8 @@ const ProjectListView = ({ loading, projects, onCreateClick, onRefresh, onProjec
         <div className="flex justify-center py-12">
           <Loader2 className="animate-spin text-orange-500" size={32} />
         </div>
+      ) : projects.length === 0 ? (
+        <p className="py-12 text-center text-sm text-gray-500">{t('empty_projects')}</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {projects.map((project) => (

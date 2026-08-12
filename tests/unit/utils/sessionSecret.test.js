@@ -8,8 +8,20 @@ import {
   SESSION_SECRET_FILENAME,
 } from '../../../src/utils/files.js';
 
+const LONG_SECRET = '0123456789abcdef0123456789abcdef';
+
 test('a defined SESSION_SECRET is returned trimmed', () => {
-  assert.equal(resolveCookieSessionSecret({ sessionSecretFromEnv: '  abc  ' }), 'abc');
+  assert.equal(
+    resolveCookieSessionSecret({ sessionSecretFromEnv: `  ${LONG_SECRET}  ` }),
+    LONG_SECRET,
+  );
+});
+
+test('a short SESSION_SECRET is rejected', () => {
+  assert.throws(
+    () => resolveCookieSessionSecret({ sessionSecretFromEnv: 'abc' }),
+    /at least 32 characters/,
+  );
 });
 
 test('without SESSION_SECRET or dataDir it generates 64 hex chars and warns', () => {
@@ -22,7 +34,7 @@ test('without SESSION_SECRET or dataDir it generates 64 hex chars and warns', ()
   try {
     const s = resolveCookieSessionSecret({});
     assert.match(s, /^[0-9a-f]{64}$/);
-    assert.ok(warned, 'debe registrar aviso');
+    assert.ok(warned, 'must log a warning');
   } finally {
     console.warn = prevWarn;
   }
@@ -45,8 +57,11 @@ test('without SESSION_SECRET but with dataDir it creates the file and reuses the
 test('SESSION_SECRET takes precedence over dataDir', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'easypages-secret-'));
   try {
-    resolveCookieSessionSecret({ sessionSecretFromEnv: 'from-env', dataDir: dir });
-    assert.equal(resolveCookieSessionSecret({ sessionSecretFromEnv: 'from-env', dataDir: dir }), 'from-env');
+    resolveCookieSessionSecret({ sessionSecretFromEnv: LONG_SECRET, dataDir: dir });
+    assert.equal(
+      resolveCookieSessionSecret({ sessionSecretFromEnv: LONG_SECRET, dataDir: dir }),
+      LONG_SECRET,
+    );
     const filePath = path.join(dir, SESSION_SECRET_FILENAME);
     assert.ok(!fs.existsSync(filePath));
   } finally {

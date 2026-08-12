@@ -81,3 +81,29 @@ test('without a session the bundle is public and the API is not', async () => {
   assert.equal(api.status, 401);
   assert.equal((await api.json()).code, 'session_expired');
 });
+
+test('GET /api/projects.json without auth does not leak projects via extension allowlist', async () => {
+  // Under /api the rule is an allowlist, never a file extension: granting access by suffix
+  // is how /api/projects.json would become readable.
+  const response = await fetch(`${app.baseUrl}/api/projects.json`, { redirect: 'manual' });
+  assert.equal(response.status, 401);
+  const body = await response.json();
+  assert.ok(
+    body.code === 'session_expired' || body.code === 'setup_required',
+    `expected session_expired or setup_required, got ${body.code}`,
+  );
+  assert.equal(Array.isArray(body), false);
+  assert.equal(body.result, undefined);
+});
+
+test('POST upload without a file is rejected with 400', async () => {
+  const { body: bootstrap } = await client.status();
+  const response = await client.request('/api/projects/demo/upload', {
+    body: new FormData(),
+    csrfToken: bootstrap.csrf_token,
+    method: 'POST',
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error, 'No file was uploaded');
+});

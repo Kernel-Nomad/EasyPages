@@ -15,15 +15,15 @@ export const validateBuildConfig = (buildConfig) => {
   const hasOutputDir = buildConfig.output_dir !== undefined;
 
   if (!hasCommand && !hasOutputDir) {
-    return 'Debe indicar al menos un valor de build_config.';
+    return 'Provide at least one build_config value.';
   }
 
   if (hasCommand && typeof buildConfig.command !== 'string') {
-    return 'El comando de build debe ser un texto.';
+    return 'The build command must be a string.';
   }
 
   if (hasOutputDir && typeof buildConfig.output_dir !== 'string') {
-    return 'El directorio de salida debe ser un texto.';
+    return 'The output directory must be a string.';
   }
 
   return null;
@@ -40,7 +40,7 @@ export const validateEnvPayload = (env) => {
     }
 
     if (typeof value !== 'string') {
-      return 'Los valores de entorno deben ser textos.';
+      return 'Environment values must be strings.';
     }
   }
 

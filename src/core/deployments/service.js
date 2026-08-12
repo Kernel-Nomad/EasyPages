@@ -7,11 +7,12 @@ export const createDeploymentsService = ({ cloudflare, uploadLimits }) => ({
   async deleteDeployments({ deploymentIds, projectName }) {
     const projectResponse = await cloudflare.get(`/pages/projects/${projectName}`);
     const productionId = projectResponse.data.result.canonical_deployment?.id;
-    const results = { success: 0, failed: 0 };
+    const results = { success: 0, failed: 0, skipped: 0 };
 
     for (const id of deploymentIds) {
       if (id === productionId) {
         console.log(`Skipping production deployment (active): ${id}`);
+        results.skipped += 1;
         continue;
       }
 
@@ -35,6 +36,8 @@ export const createDeploymentsService = ({ cloudflare, uploadLimits }) => ({
     let page = 1;
     let allIds = [];
     let keepFetching = true;
+    let truncated = false;
+    let fetchError = false;
 
     while (keepFetching) {
       try {
@@ -51,30 +54,52 @@ export const createDeploymentsService = ({ cloudflare, uploadLimits }) => ({
           page += 1;
 
           if (page > MAX_DEPLOYMENT_CANDIDATE_PAGES) {
+            truncated = deployments.length === 25;
             keepFetching = false;
           }
         }
       } catch (error) {
         console.error(`Error fetching page ${page}`, error.message);
+        fetchError = true;
         keepFetching = false;
       }
     }
 
     const idsToDelete = allIds.filter((id) => id !== productionId);
-    return { count: idsToDelete.length, ids: idsToDelete };
+    return {
+      count: idsToDelete.length,
+      fetchError,
+      ids: idsToDelete,
+      truncated,
+    };
   },
 
-  async listDeployments({ projectName }) {
-    const response = await cloudflare.get(
-      `/pages/projects/${projectName}/deployments?per_page=25&sort_by=created_on&sort_order=desc`,
-    );
+  async listDeployments({ projectName, page = 1 }) {
+    const perPage = 25;
+    const [projectResponse, deploymentsResponse] = await Promise.all([
+      cloudflare.get(`/pages/projects/${projectName}`),
+      cloudflare.get(
+        `/pages/projects/${projectName}/deployments?per_page=${perPage}&page=${page}&sort_by=created_on&sort_order=desc`,
+      ),
+    ]);
 
-    return response.data.result;
+    const deployments = deploymentsResponse.data.result || [];
+    const totalCount = deploymentsResponse.data.result_info?.total_count;
+    const hasMore = typeof totalCount === 'number'
+      ? page * perPage < totalCount
+      : deployments.length === perPage;
+
+    return {
+      deployments,
+      hasMore,
+      page,
+      productionDeploymentId: projectResponse.data.result.canonical_deployment?.id ?? null,
+    };
   },
 
   async triggerDeployment({ projectName }) {
     const response = await cloudflare.post(`/pages/projects/${projectName}/deployments`, {});
-    return response.data;
+    return response.data.result;
   },
 
   async uploadProjectBundle({ filePath, projectName }) {

@@ -25,15 +25,37 @@ export const spaLimiter = rateLimit({
 export const uploadLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   limit: 10,
-  message: { error: 'Upload limit exceeded. Try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  handler: (req, res) => {
+    const resetTime = req.rateLimit?.resetTime;
+    const retryAfter = resetTime instanceof Date
+      ? Math.max(1, Math.ceil((resetTime.getTime() - Date.now()) / 1000))
+      : 3600;
+    res.set('Retry-After', String(retryAfter));
+    res.status(429).json({
+      error: 'Upload limit exceeded. Try again later.',
+      code: 'rate_limited',
+      retry_after: retryAfter,
+    });
+  },
 });
 
 export const createProjectLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,
-  message: { error: 'Too many project creation requests.' },
   standardHeaders: true,
   legacyHeaders: false,
+  handler: (req, res) => {
+    const resetTime = req.rateLimit?.resetTime;
+    const retryAfter = resetTime instanceof Date
+      ? Math.max(1, Math.ceil((resetTime.getTime() - Date.now()) / 1000))
+      : 900;
+    res.set('Retry-After', String(retryAfter));
+    res.status(429).json({
+      error: 'Too many project creation requests.',
+      code: 'rate_limited',
+      retry_after: retryAfter,
+    });
+  },
 });

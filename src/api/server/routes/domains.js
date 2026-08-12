@@ -1,20 +1,28 @@
 import express from 'express';
-import { sendErrorResponse } from '../http.js';
+import { createDomainsService } from '../../../core/domains/service.js';
+import {
+  isValidDomainName,
+  normalizeDomainName,
+} from '../../../core/domains/validation.js';
 import { isValidProjectName } from '../../../core/projects/validation.js';
-import { isValidDomainName } from '../../../utils/validation.js';
+import { sendErrorResponse } from '../http.js';
+
+const sendValidationError = (res, message, code = 'validation_error') =>
+  res.status(400).json({ error: message, code });
 
 export const createDomainsRouter = ({ cloudflare }) => {
   const router = express.Router();
+  const domainsService = createDomainsService({ cloudflare });
 
   router.get('/projects/:projectName/domains', async (req, res) => {
     try {
       const { projectName } = req.params;
       if (!isValidProjectName(projectName)) {
-        return res.status(400).json({ error: 'Invalid project name' });
+        return sendValidationError(res, 'Invalid project name');
       }
 
-      const response = await cloudflare.get(`/pages/projects/${projectName}/domains`);
-      res.json(response.data.result);
+      const domains = await domainsService.listDomains({ projectName });
+      res.json(domains);
     } catch (error) {
       sendErrorResponse(res, error, 'Failed to load domains', req);
     }
@@ -23,18 +31,21 @@ export const createDomainsRouter = ({ cloudflare }) => {
   router.post('/projects/:projectName/domains', async (req, res) => {
     try {
       const { projectName } = req.params;
-      const { name } = req.body;
+      const normalizedName = normalizeDomainName(req.body?.name);
 
       if (!isValidProjectName(projectName)) {
-        return res.status(400).json({ error: 'Invalid project name' });
+        return sendValidationError(res, 'Invalid project name');
       }
 
-      if (!isValidDomainName(name)) {
-        return res.status(400).json({ error: 'Invalid domain name' });
+      if (!isValidDomainName(normalizedName)) {
+        return sendValidationError(res, 'Invalid domain name', 'invalid_domain');
       }
 
-      const response = await cloudflare.post(`/pages/projects/${projectName}/domains`, { name });
-      res.json(response.data.result);
+      const domain = await domainsService.addDomain({
+        name: normalizedName,
+        projectName,
+      });
+      res.json(domain);
     } catch (error) {
       sendErrorResponse(res, error, 'Error adding the domain', req);
     }
@@ -43,12 +54,16 @@ export const createDomainsRouter = ({ cloudflare }) => {
   router.delete('/projects/:projectName/domains/:domainName', async (req, res) => {
     try {
       const { projectName, domainName } = req.params;
-      if (!isValidProjectName(projectName) || !isValidDomainName(domainName)) {
-        return res.status(400).json({ error: 'Invalid parameters' });
+      const normalizedDomain = normalizeDomainName(domainName);
+      if (!isValidProjectName(projectName) || !isValidDomainName(normalizedDomain)) {
+        return sendValidationError(res, 'Invalid parameters');
       }
 
-      await cloudflare.delete(`/pages/projects/${projectName}/domains/${domainName}`);
-      res.json({ success: true });
+      const result = await domainsService.deleteDomain({
+        domainName: normalizedDomain,
+        projectName,
+      });
+      res.json(result);
     } catch (error) {
       sendErrorResponse(res, error, 'Failed to delete the domain', req);
     }

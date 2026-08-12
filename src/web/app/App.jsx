@@ -40,6 +40,7 @@ export default function App() {
     activeTab,
     creating,
     deployments,
+    deploymentsHasMore,
     handleBack,
     handleCreateProject,
     handleProjectClick,
@@ -47,10 +48,12 @@ export default function App() {
     handleUploadSuccess,
     isDeploying,
     loadDeployments,
+    loadMoreDeployments,
     loadProjects,
     loading,
     loadingDeployments,
     newProjectName,
+    productionDeploymentId,
     projects,
     selectedProject,
     setActiveTab,
@@ -185,6 +188,8 @@ export default function App() {
             setActiveTab={setActiveTab}
             loadingDeployments={loadingDeployments}
             deployments={deployments}
+            deploymentsHasMore={deploymentsHasMore}
+            productionDeploymentId={productionDeploymentId}
             csrfToken={csrfToken}
             isDeploying={isDeploying}
             onBack={handleBackToList}
@@ -192,6 +197,7 @@ export default function App() {
             onNotify={showNotification}
             onTriggerDeploy={handleTriggerDeploy}
             onRefreshDeployments={loadDeployments}
+            onLoadMoreDeployments={loadMoreDeployments}
             onUploadSuccess={handleUploadSuccess}
           />
         )}

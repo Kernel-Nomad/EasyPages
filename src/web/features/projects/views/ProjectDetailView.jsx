@@ -21,6 +21,8 @@ const ProjectDetailView = ({
   setActiveTab,
   loadingDeployments,
   deployments,
+  deploymentsHasMore,
+  productionDeploymentId,
   csrfToken,
   isDeploying,
   onBack,
@@ -28,6 +30,7 @@ const ProjectDetailView = ({
   onNotify,
   onTriggerDeploy,
   onRefreshDeployments,
+  onLoadMoreDeployments,
   onUploadSuccess,
 }) => {
   const { t } = useTranslation();
@@ -44,11 +47,31 @@ const ProjectDetailView = ({
     { id: 'settings', label: t('tab_settings'), icon: Settings, show: true },
   ].filter((tab) => tab.show);
 
+  const handleTabKeyDown = (event) => {
+    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') {
+      return;
+    }
+    event.preventDefault();
+    const currentIndex = tabs.findIndex((tab) => tab.id === activeTab);
+    if (currentIndex < 0) {
+      return;
+    }
+    const delta = event.key === 'ArrowRight' ? 1 : -1;
+    const nextIndex = (currentIndex + delta + tabs.length) % tabs.length;
+    setActiveTab(tabs[nextIndex].id);
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-500" title={t('back_to_list')}>
+          <button
+            type="button"
+            onClick={onBack}
+            className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-500"
+            title={t('back_to_list')}
+            aria-label={t('back_to_list')}
+          >
             <ArrowLeft size={20} />
           </button>
           <div>
@@ -87,74 +110,98 @@ const ProjectDetailView = ({
       </div>
 
       <div className="border-b border-gray-200">
-        <nav className="-mb-px flex gap-6 overflow-x-auto">
+        <div className="-mb-px flex gap-6 overflow-x-auto" role="tablist" aria-label={selectedProject.name}>
           {tabs.map((tab) => (
             <button
               key={tab.id}
+              type="button"
+              role="tab"
+              id={`project-tab-${tab.id}`}
+              aria-selected={activeTab === tab.id}
+              aria-controls={`project-panel-${tab.id}`}
+              tabIndex={activeTab === tab.id ? 0 : -1}
               onClick={() => setActiveTab(tab.id)}
+              onKeyDown={handleTabKeyDown}
               className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === tab.id ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
             >
               <tab.icon size={16} />
               {tab.label}
             </button>
           ))}
-        </nav>
+        </div>
       </div>
 
       <div className="min-h-[400px]">
         {activeTab === 'deployments' && (
-          loadingDeployments && deployments.length === 0 ? (
-            <div className="p-10 text-center text-gray-500 flex flex-col items-center gap-2">
-              <Loader2 className="animate-spin text-orange-500" size={24} />
-              {t('loading_history')}
-            </div>
-          ) : (
-            <div className="relative">
-              {loadingDeployments && deployments.length > 0 && (
-                <div
-                  className="absolute inset-0 z-10 flex justify-center items-start pt-10 bg-white/60 backdrop-blur-[1px]"
-                  aria-busy="true"
-                  aria-label={t('loading_history')}
-                >
-                  <Loader2 className="animate-spin text-orange-500" size={24} />
-                </div>
-              )}
-              <DeploymentList
-                deployments={deployments}
-                projectName={selectedProject.name}
-                csrfToken={csrfToken}
-                onConfirm={onConfirm}
-                onNotify={onNotify}
-                onRefresh={() => onRefreshDeployments(selectedProject.name)}
-              />
-            </div>
-          )
+          <div
+            role="tabpanel"
+            id="project-panel-deployments"
+            aria-labelledby="project-tab-deployments"
+          >
+            {loadingDeployments && deployments.length === 0 ? (
+              <div className="p-10 text-center text-gray-500 flex flex-col items-center gap-2" role="status">
+                <Loader2 className="animate-spin text-orange-500" size={24} />
+                {t('loading_history')}
+              </div>
+            ) : (
+              <div className="relative">
+                {loadingDeployments && deployments.length > 0 && (
+                  <div
+                    className="absolute inset-0 z-10 flex justify-center items-start pt-10 bg-white/60 backdrop-blur-[1px]"
+                    aria-busy="true"
+                    role="status"
+                    aria-label={t('loading_history')}
+                  >
+                    <Loader2 className="animate-spin text-orange-500" size={24} />
+                  </div>
+                )}
+                <DeploymentList
+                  deployments={deployments}
+                  deploymentsHasMore={deploymentsHasMore}
+                  loadingMore={loadingDeployments && deployments.length > 0}
+                  productionDeploymentId={productionDeploymentId}
+                  projectName={selectedProject.name}
+                  csrfToken={csrfToken}
+                  onConfirm={onConfirm}
+                  onNotify={onNotify}
+                  onRefresh={() => onRefreshDeployments(selectedProject.name)}
+                  onLoadMore={onLoadMoreDeployments}
+                />
+              </div>
+            )}
+          </div>
         )}
 
         {activeTab === 'domains' && (
-          <DomainsTab
-            project={selectedProject}
-            csrfToken={csrfToken}
-            onConfirm={onConfirm}
-            onNotify={onNotify}
-          />
+          <div role="tabpanel" id="project-panel-domains" aria-labelledby="project-tab-domains">
+            <DomainsTab
+              project={selectedProject}
+              csrfToken={csrfToken}
+              onConfirm={onConfirm}
+              onNotify={onNotify}
+            />
+          </div>
         )}
 
         {activeTab === 'upload' && (
-          <UploadTab
-            project={selectedProject}
-            csrfToken={csrfToken}
-            onNotify={onNotify}
-            onUploadSuccess={onUploadSuccess}
-          />
+          <div role="tabpanel" id="project-panel-upload" aria-labelledby="project-tab-upload">
+            <UploadTab
+              project={selectedProject}
+              csrfToken={csrfToken}
+              onNotify={onNotify}
+              onUploadSuccess={onUploadSuccess}
+            />
+          </div>
         )}
 
         {activeTab === 'settings' && (
-          <SettingsTab
-            project={selectedProject}
-            csrfToken={csrfToken}
-            onNotify={onNotify}
-          />
+          <div role="tabpanel" id="project-panel-settings" aria-labelledby="project-tab-settings">
+            <SettingsTab
+              project={selectedProject}
+              csrfToken={csrfToken}
+              onNotify={onNotify}
+            />
+          </div>
         )}
       </div>
     </div>

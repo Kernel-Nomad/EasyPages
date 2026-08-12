@@ -80,22 +80,24 @@ const SettingsTab = ({ project, csrfToken, onNotify }) => {
         </div>
         <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">{t('build_command_label')}</label>
+            <label htmlFor="build-command" className="text-sm font-medium text-gray-700">{t('build_command_label')}</label>
             <input
+              id="build-command"
               type="text"
               value={buildConfig.command}
               onChange={(event) => setBuildConfig({ ...buildConfig, command: event.target.value })}
-              placeholder="npm run build"
+              placeholder={t('build_command_placeholder')}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono focus:ring-2 focus:ring-orange-500 outline-none"
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">{t('output_dir_label')}</label>
+            <label htmlFor="output-dir" className="text-sm font-medium text-gray-700">{t('output_dir_label')}</label>
             <input
+              id="output-dir"
               type="text"
               value={buildConfig.output_dir}
               onChange={(event) => setBuildConfig({ ...buildConfig, output_dir: event.target.value })}
-              placeholder="dist"
+              placeholder={t('output_dir_placeholder')}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono focus:ring-2 focus:ring-orange-500 outline-none"
             />
           </div>

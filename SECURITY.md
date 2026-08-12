@@ -25,8 +25,9 @@ create, deploy and delete Pages projects and domains with your Cloudflare API to
 - **Server-side invalidation:** every credential change bumps `token_version`, which
   invalidates every cookie issued before it. That is how "sign out all other devices"
   works with a stateless cookie.
-- **CSRF:** an opaque per-session token, required on every unsafe method, submitted in the
-  `CSRF-Token` header. Combined with `SameSite=Lax` and JSON-only endpoints.
+- **CSRF:** an opaque per-session token, required on every unsafe method. Accepted via the
+  `CSRF-Token` header (preferred), also `Csrf-Token`, `X-CSRF-Token`, or a `_csrf` body
+  field. Combined with `SameSite=Lax` and JSON-only endpoints.
 - **Rate limiting:** failed credential checks are limited per reported IP (15 per 5 min)
   and per socket peer (60 per 5 min). The second bucket exists because `X-Forwarded-For`
   is sent by the client: without it, rotating a forged value gives a fresh quota on every

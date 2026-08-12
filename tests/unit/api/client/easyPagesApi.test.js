@@ -168,6 +168,30 @@ test('a 403 refreshes the CSRF token and retries exactly once', async () => {
   assert.deepEqual(sentTokens, ['stale', 'fresh-token']);
 });
 
+test('tier 2: login refreshes the CSRF token and retries exactly once on 403', async () => {
+  const sentTokens = [];
+  let calls = 0;
+  configureEasyPagesApi({ onForbidden: () => 'fresh-token' });
+  globalThis.fetch = (u, init) => {
+    sentTokens.push(init.headers['CSRF-Token']);
+    calls += 1;
+    return Promise.resolve(
+      calls === 1
+        ? jsonResponse({ error: 'Invalid CSRF token', code: 'csrf_invalid' }, 403)
+        : jsonResponse({ authenticated: true, csrf_token: 'fresh-token' }),
+    );
+  };
+
+  const result = await easyPagesClient.login({
+    csrfToken: 'stale',
+    password: 'a-good-password',
+    username: 'admin',
+  });
+
+  assert.deepEqual(sentTokens, ['stale', 'fresh-token']);
+  assert.equal(result.authenticated, true);
+});
+
 test('the rate-limit error keeps retry_after', async () => {
   globalThis.fetch = () =>
     Promise.resolve(jsonResponse(

@@ -26,7 +26,8 @@ const AuthLayout = ({ children, onToggleLanguage, subtitle, title }) => {
             type="button"
             onClick={onToggleLanguage}
             className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-500 transition-colors hover:bg-orange-50 hover:text-orange-600"
-            title={t('auth_title')}
+            title={t('toggle_language')}
+            aria-label={t('toggle_language')}
           >
             <Languages size={16} />
             <span className="font-medium uppercase">{i18n.language?.split('-')[0]}</span>

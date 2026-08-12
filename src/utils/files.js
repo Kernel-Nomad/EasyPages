@@ -37,6 +37,11 @@ export const resolveCookieSessionSecret = ({
   const trimmed =
     typeof sessionSecretFromEnv === 'string' ? sessionSecretFromEnv.trim() : '';
   if (trimmed) {
+    if (trimmed.length < MIN_SESSION_SECRET_FILE_LENGTH) {
+      throw new Error(
+        `SESSION_SECRET must be at least ${MIN_SESSION_SECRET_FILE_LENGTH} characters`,
+      );
+    }
     return trimmed;
   }
 

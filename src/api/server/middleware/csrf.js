@@ -23,6 +23,9 @@ const readSubmittedCsrfToken = (req) => {
  */
 export const createSessionCsrfProtection = () => (req, res, next) => {
   req.csrfToken = () => {
+    if (!req.session) {
+      req.session = {};
+    }
     if (!req.session.csrfToken) {
       req.session.csrfToken = crypto.randomBytes(32).toString('hex');
     }
@@ -34,7 +37,7 @@ export const createSessionCsrfProtection = () => (req, res, next) => {
   }
 
   const submitted = readSubmittedCsrfToken(req);
-  const expected = req.session.csrfToken;
+  const expected = req.session?.csrfToken;
 
   if (!expected || !timingSafeEqualStrings(submitted, expected)) {
     const err = new Error('Invalid CSRF token');

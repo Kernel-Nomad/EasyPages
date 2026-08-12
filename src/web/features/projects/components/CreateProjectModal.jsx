@@ -36,7 +36,7 @@ const CreateProjectModal = ({
                 id={nameId}
                 ref={initialFocusRef}
                 type="text"
-                placeholder="mi-sitio-increible"
+                placeholder={t('project_name_placeholder')}
                 value={newProjectName}
                 onChange={(event) => onNameChange(event.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:outline-none"

@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import zlib from 'node:zlib';
 import AdmZip from 'adm-zip';
 import FormData from 'form-data';
 import {
@@ -16,6 +17,8 @@ import {
 } from '../../utils/files.js';
 
 const SAFE_VIRTUAL_ROOT = '/safe/root';
+/** STORED (no compression) in the ZIP local file header. */
+const ZIP_METHOD_STORED = 0;
 
 export const createUploadLimits = (uploadLimits = {}) => ({
   maxUploadBatchBytes: uploadLimits.maxUploadBatchBytes ?? MAX_UPLOAD_BATCH_BYTES,
@@ -27,6 +30,43 @@ export const createUploadLimits = (uploadLimits = {}) => ({
     uploadLimits.maxTotalUncompressedBytes ?? MAX_ZIP_TOTAL_UNCOMPRESSED_BYTES,
 });
 
+/**
+ * Decompress with a hard output cap so a lying uncompressed-size header cannot allocate
+ * unbounded memory before the post-check runs.
+ */
+const readZipEntryContent = (entry, maxBytes) => {
+  let compressed;
+  try {
+    compressed = entry.getCompressedData();
+  } catch {
+    throw createHttpError(400, 'The ZIP archive is invalid or corrupt.');
+  }
+
+  if (!Buffer.isBuffer(compressed)) {
+    throw createHttpError(400, 'The ZIP archive is invalid or corrupt.');
+  }
+
+  const method = entry.header?.method;
+  if (method === ZIP_METHOD_STORED) {
+    if (compressed.length > maxBytes) {
+      throw createHttpError(413, 'One of the files in the ZIP exceeds the allowed size.');
+    }
+    return compressed;
+  }
+
+  try {
+    return zlib.inflateRawSync(compressed, { maxOutputLength: maxBytes });
+  } catch (error) {
+    if (
+      error?.code === 'ERR_BUFFER_TOO_LARGE'
+      || /exceed|too large|maxOutputLength/i.test(String(error?.message || ''))
+    ) {
+      throw createHttpError(413, 'One of the files in the ZIP exceeds the allowed size.');
+    }
+    throw createHttpError(400, 'The ZIP archive is invalid or corrupt.');
+  }
+};
+
 export const uploadProjectBundle = async ({
   cloudflare,
   filePath,
@@ -36,7 +76,14 @@ export const uploadProjectBundle = async ({
   const limits = createUploadLimits(uploadLimits);
   const tokenResponse = await cloudflare.get(`/pages/projects/${projectName}/upload-token`);
   const jwt = tokenResponse.data.result.jwt;
-  const zip = new AdmZip(filePath);
+
+  let zip;
+  try {
+    zip = new AdmZip(filePath);
+  } catch {
+    throw createHttpError(400, 'The uploaded file is not a valid ZIP archive.');
+  }
+
   const zipEntries = zip.getEntries();
 
   if (zipEntries.length > limits.maxZipEntryCount) {
@@ -84,7 +131,7 @@ export const uploadProjectBundle = async ({
       throw createHttpError(413, 'One of the files in the ZIP exceeds the allowed size.');
     }
 
-    const content = entry.getData();
+    const content = readZipEntryContent(entry, limits.maxZipEntryBytes);
     const actualSize = content.length;
     if (actualSize > limits.maxZipEntryBytes) {
       throw createHttpError(413, 'One of the files in the ZIP exceeds the allowed size.');

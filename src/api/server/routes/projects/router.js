@@ -5,17 +5,15 @@ import {
   toCreateProjectInput,
   toProjectInput,
   toUpdateProjectBuildConfigInput,
-  toUpdateProjectEnvInput,
 } from './mappers.js';
 import {
   validateCreateProjectRequest,
   validateProjectBuildConfigRequest,
-  validateProjectEnvRequest,
   validateProjectNameParam,
 } from './validation.js';
 
 const sendValidationError = (res, message) =>
-  res.status(400).json({ error: message });
+  res.status(400).json({ error: message, code: 'validation_error' });
 
 export const createProjectsRouter = ({ cloudflare, createProjectLimiter }) => {
   const router = express.Router();
@@ -62,25 +60,6 @@ export const createProjectsRouter = ({ cloudflare, createProjectLimiter }) => {
       res.json(projectSettings);
     } catch (error) {
       sendErrorResponse(res, error, 'Error loading the project configuration', req);
-    }
-  });
-
-  router.put('/projects/:projectName/env', async (req, res) => {
-    try {
-      const projectNameError = validateProjectNameParam(req.params.projectName);
-      if (projectNameError) {
-        return sendValidationError(res, projectNameError);
-      }
-
-      const envError = validateProjectEnvRequest(req.body);
-      if (envError) {
-        return sendValidationError(res, envError);
-      }
-
-      const result = await projectsService.updateProjectEnv(toUpdateProjectEnvInput(req));
-      res.json(result);
-    } catch (error) {
-      sendErrorResponse(res, error, 'Failed to save environment variables', req);
     }
   });
 

@@ -87,7 +87,11 @@ const DomainsTab = ({ project, csrfToken, onConfirm, onNotify }) => {
   };
 
   if (loading) {
-    return <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-orange-500" /></div>;
+    return (
+      <div className="p-8 text-center" role="status">
+        <Loader2 className="animate-spin mx-auto text-orange-500" />
+      </div>
+    );
   }
 
   return (
@@ -109,7 +113,12 @@ const DomainsTab = ({ project, csrfToken, onConfirm, onNotify }) => {
                   <ExternalLink size={14} />
                 </a>
               </div>
-              <button onClick={() => handleDelete(domain.name)} className="text-gray-400 hover:text-red-600 p-2">
+              <button
+                type="button"
+                onClick={() => handleDelete(domain.name)}
+                className="text-gray-400 hover:text-red-600 p-2"
+                aria-label={`${t('delete')} ${domain.name}`}
+              >
                 <Trash2 size={16} />
               </button>
             </div>

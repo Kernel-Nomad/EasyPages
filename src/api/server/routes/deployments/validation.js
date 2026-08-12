@@ -7,7 +7,7 @@ const isValidDeploymentId = (value) =>
 
 export const validateDeploymentDeleteRequest = (body) => {
   if (!Array.isArray(body?.deploymentIds) || body.deploymentIds.length === 0) {
-    return 'No se enviaron IDs para borrar';
+    return 'No deployment IDs were provided.';
   }
 
   if (body.deploymentIds.length > MAX_DELETE_DEPLOYMENT_IDS) {

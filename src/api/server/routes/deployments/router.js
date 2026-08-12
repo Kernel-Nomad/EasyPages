@@ -10,6 +10,7 @@ import {
 import {
   toDeleteDeploymentsInput,
   toDeleteDeploymentsResponse,
+  toListDeploymentsInput,
   toProjectInput,
   toUploadProjectBundleInput,
 } from './mappers.js';
@@ -19,7 +20,7 @@ import {
 } from './validation.js';
 
 const sendValidationError = (res, message) =>
-  res.status(400).json({ error: message });
+  res.status(400).json({ error: message, code: 'validation_error' });
 
 const cleanupUploadFile = (file, uploadsDir) => {
   if (file) {
@@ -68,7 +69,7 @@ export const createDeploymentsRouter = ({
         return sendValidationError(res, projectNameError);
       }
 
-      const deployments = await deploymentsService.listDeployments(toProjectInput(req));
+      const deployments = await deploymentsService.listDeployments(toListDeploymentsInput(req));
       res.json(deployments);
     } catch (error) {
       sendErrorResponse(res, error, 'Failed to load deployments', req);
