@@ -11,12 +11,12 @@ const Footer = () => {
           <p>
             &copy; {new Date().getFullYear()}{' '}
             <a
-              href="https://github.com/KN990x"
+              href="https://kn990x.dev"
               target="_blank"
               rel="noopener noreferrer"
               className="text-gray-600 font-semibold hover:underline hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-400 rounded-sm"
             >
-              KN
+              KN990x
             </a>
           </p>
         </div>
