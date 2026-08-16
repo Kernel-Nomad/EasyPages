@@ -2,13 +2,17 @@ import { Box, GitBranch, Globe, HardDrive } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import StatusBadge from '../../../shared/ui/StatusBadge';
 
+const isGitSource = (source) => {
+  const type = typeof source?.type === 'string' ? source.type.toLowerCase() : '';
+  return type === 'github' || type === 'gitlab';
+};
+
 const ProjectCard = ({ project, onClick }) => {
   const { t } = useTranslation();
 
   const source = project.source || {};
   const latestDeployment = project.latest_deployment || { status: 'unknown' };
-
-  const isGithub = source.type === 'github';
+  const isGit = isGitSource(source);
 
   return (
     <button
@@ -27,7 +31,7 @@ const ProjectCard = ({ project, onClick }) => {
               {project.name}
             </span>
             <p className="text-xs text-gray-500 flex items-center gap-1">
-              {isGithub ? <GitBranch size={12} aria-hidden="true" /> : <Globe size={12} aria-hidden="true" />}
+              {isGit ? <GitBranch size={12} aria-hidden="true" /> : <Globe size={12} aria-hidden="true" />}
               {project.subdomain || t('no_domain')}
             </p>
           </div>
@@ -39,7 +43,7 @@ const ProjectCard = ({ project, onClick }) => {
         <div className="flex justify-between text-sm">
           <span className="text-gray-500">{t('source_label')}</span>
           <span className="text-gray-700 truncate max-w-[150px] flex items-center gap-1">
-            {isGithub ? (
+            {isGit ? (
               <>
                 <GitBranch size={12} aria-hidden="true" />
                 {source.repo || t('unknown_repo')}

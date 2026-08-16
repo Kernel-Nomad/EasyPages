@@ -16,6 +16,12 @@ export const CF_ACCOUNT_ID = trimEnv(process.env.CF_ACCOUNT_ID);
 export const SESSION_SECRET = trimEnv(process.env.SESSION_SECRET);
 
 /**
+ * Interface the HTTP server binds to. Default is loopback so a bare `pnpm start` is not
+ * reachable from the LAN during the setup window. Docker sets `BIND_HOST=0.0.0.0`.
+ */
+export const BIND_HOST = trimEnv(process.env.BIND_HOST) || '127.0.0.1';
+
+/**
  * Where the session secret and the operator credential live. Always resolves to a real
  * path: without one the credential would not survive a restart.
  */

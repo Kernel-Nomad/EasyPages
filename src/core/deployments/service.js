@@ -1,3 +1,4 @@
+import { mapListDeploymentsResult, mapTriggeredDeployment } from './mappers.js';
 import { uploadProjectBundle as processUploadProjectBundle } from './upload.js';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -100,12 +101,12 @@ export const createDeploymentsService = ({ cloudflare, uploadLimits, sleepFn = s
       ? page * perPage < totalCount
       : deployments.length === perPage;
 
-    return {
+    return mapListDeploymentsResult({
       deployments,
       hasMore,
       page,
       productionDeploymentId: projectResponse.data.result.canonical_deployment?.id ?? null,
-    };
+    });
   },
 
   async triggerDeployment({ projectName }) {
@@ -113,7 +114,7 @@ export const createDeploymentsService = ({ cloudflare, uploadLimits, sleepFn = s
       `${projectPath(projectName)}/deployments`,
       {},
     );
-    return response.data.result;
+    return mapTriggeredDeployment(response.data.result);
   },
 
   async uploadProjectBundle({ filePath, projectName }) {

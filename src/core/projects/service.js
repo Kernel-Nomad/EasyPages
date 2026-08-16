@@ -12,7 +12,7 @@ export const createProjectsService = ({ cloudflare }) => ({
       production_branch: 'main',
     });
 
-    return response.data.result;
+    return mapCloudflareProjectSummary(response.data.result);
   },
 
   async getProjectSettings({ projectName }) {
@@ -30,6 +30,6 @@ export const createProjectsService = ({ cloudflare }) => ({
       build_config: toCloudflareBuildConfig(buildConfig),
     });
 
-    return response.data.result;
+    return mapCloudflareProjectSummary(response.data.result);
   },
 });

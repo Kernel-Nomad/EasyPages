@@ -143,7 +143,7 @@ export const normalizeCloudflareError = (error, fallbackMessage) => {
  * @param {{ perPage?: number }} [options]
  * @returns {Promise<unknown[]>}
  */
-export const listAllPages = async (cloudflare, resourcePath, { perPage = 100 } = {}) => {
+export const listAllPages = async (cloudflare, resourcePath, { perPage = 100, maxPages = 100 } = {}) => {
   const separator = resourcePath.includes('?') ? '&' : '?';
   const all = [];
   let page = 1;
@@ -160,6 +160,9 @@ export const listAllPages = async (cloudflare, resourcePath, { perPage = 100 } =
       break;
     }
     page += 1;
+    if (page > maxPages) {
+      break;
+    }
   }
 
   return all;

@@ -1,7 +1,7 @@
-import { PORT } from '../../config/env.js';
+import { BIND_HOST, PORT } from '../../config/env.js';
 import { createApp } from '../../api/server/app.js';
 
-export const startServer = ({ port = PORT } = {}) => {
+export const startServer = ({ port = PORT, host = BIND_HOST } = {}) => {
   let app;
   try {
     app = createApp();
@@ -11,9 +11,13 @@ export const startServer = ({ port = PORT } = {}) => {
     process.exit(1);
   }
 
-  const server = app.listen(port, () => {
+  const server = app.listen(port, host, () => {
+    const displayHost = host === '0.0.0.0' || host === '::' ? '127.0.0.1' : host;
     console.log(
-      `✅ EasyPages on http://127.0.0.1:${port} — with Docker, use the port Compose publishes (e.g. 8002).`,
+      `✅ EasyPages listening on ${host}:${port} — open http://${displayHost}:${port}`
+      + (host === '0.0.0.0' || host === '::'
+        ? ' (bound on all interfaces; with Docker use the port Compose publishes).'
+        : '.'),
     );
   });
 

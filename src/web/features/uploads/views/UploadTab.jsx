@@ -6,7 +6,9 @@ import { isSecurityError } from '../../../app/hooks/useAuthSession.js';
 import { dashboardErrorMessage } from '../../../shared/i18n/dashboardErrors.js';
 
 /** Must stay aligned with MAX_UPLOAD_ARCHIVE_BYTES on the server. */
-const MAX_CLIENT_ZIP_BYTES = 100 * 1024 * 1024;
+import { MAX_UPLOAD_ARCHIVE_BYTES } from '../../../../shared/uploadLimits.js';
+
+const MAX_CLIENT_ZIP_BYTES = MAX_UPLOAD_ARCHIVE_BYTES;
 
 const UploadTab = ({ project, csrfToken, onNotify, onUploadSuccess }) => {
   const { t } = useTranslation();

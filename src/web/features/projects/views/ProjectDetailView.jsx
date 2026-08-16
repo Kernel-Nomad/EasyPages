@@ -15,6 +15,11 @@ import DomainsTab from '../../domains/views/DomainsTab';
 import SettingsTab from '../../settings/views/SettingsTab';
 import UploadTab from '../../uploads/views/UploadTab';
 
+const isGitSource = (source) => {
+  const type = typeof source?.type === 'string' ? source.type.toLowerCase() : '';
+  return type === 'github' || type === 'gitlab';
+};
+
 const ProjectDetailView = ({
   selectedProject,
   activeTab,
@@ -34,6 +39,7 @@ const ProjectDetailView = ({
   onUploadSuccess,
 }) => {
   const { t } = useTranslation();
+  const isGit = isGitSource(selectedProject.source);
 
   const tabs = [
     { id: 'deployments', label: t('tab_deployments'), icon: Clock, show: true },
@@ -42,7 +48,7 @@ const ProjectDetailView = ({
       id: 'upload',
       label: t('tab_upload'),
       icon: UploadCloud,
-      show: selectedProject.source?.type !== 'github',
+      show: !isGit,
     },
     { id: 'settings', label: t('tab_settings'), icon: Settings, show: true },
   ].filter((tab) => tab.show);
@@ -93,13 +99,13 @@ const ProjectDetailView = ({
               </a>
             </div>
             <p className="text-sm text-gray-500 flex items-center gap-2 mt-1">
-              {selectedProject.source?.type === 'github' && <GitBranch size={14} aria-hidden="true" />}
-              {selectedProject.source?.repo || t('direct_upload')}
+              {isGit && <GitBranch size={14} aria-hidden="true" />}
+              {isGit ? (selectedProject.source?.repo || t('unknown_repo')) : t('direct_upload')}
             </p>
           </div>
         </div>
 
-        {selectedProject.source?.type === 'github' && (
+        {isGit && (
           <div className="flex gap-2 items-center">
             <button
               type="button"
@@ -117,7 +123,7 @@ const ProjectDetailView = ({
       </div>
 
       <div className="border-b border-gray-200">
-        <div className="-mb-px flex gap-6 overflow-x-auto" role="tablist" aria-label={t('tab_deployments')}>
+        <div className="-mb-px flex gap-6 overflow-x-auto" role="tablist" aria-label={t('project_tabs')}>
           {tabs.map((tab) => (
             <button
               key={tab.id}

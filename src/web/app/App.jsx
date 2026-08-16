@@ -11,6 +11,7 @@ import ProjectDetailView from '../features/projects/views/ProjectDetailView';
 import ProjectListView from '../features/projects/views/ProjectListView';
 import Footer from '../shared/layout/Footer';
 import ConfirmDialog from '../shared/ui/ConfirmDialog';
+import ErrorBoundary from '../shared/ui/ErrorBoundary';
 import NotificationToast from '../shared/ui/NotificationToast';
 import AppHeader from './components/AppHeader';
 import { isSecurityError, useAuthSession } from './hooks/useAuthSession';
@@ -76,6 +77,7 @@ export default function App() {
   // recreated every render and would refetch in a loop. loadProjects already catches errors.
   useEffect(() => {
     if (authState !== 'ready') {
+      setNotification(null);
       return;
     }
     loadProjects();
@@ -160,6 +162,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 flex flex-col">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+      >
+        {t('skip_to_content')}
+      </a>
+
       <AppHeader
         language={resolvedLanguage}
         onToggleLanguage={toggleLanguage}
@@ -170,38 +179,40 @@ export default function App() {
 
       <NotificationToast notification={notification} onDismiss={() => setNotification(null)} />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {view === 'list' && (
-          <ProjectListView
-            loading={loading}
-            loadError={projectsLoadError}
-            projects={projects}
-            onCreateClick={openCreateModal}
-            onRefresh={loadProjects}
-            onProjectClick={handleProjectSelection}
-          />
-        )}
+      <main id="main" className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <ErrorBoundary>
+          {view === 'list' && (
+            <ProjectListView
+              loading={loading}
+              loadError={projectsLoadError}
+              projects={projects}
+              onCreateClick={openCreateModal}
+              onRefresh={loadProjects}
+              onProjectClick={handleProjectSelection}
+            />
+          )}
 
-        {view === 'detail' && selectedProject && (
-          <ProjectDetailView
-            selectedProject={selectedProject}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            loadingDeployments={loadingDeployments}
-            deployments={deployments}
-            deploymentsHasMore={deploymentsHasMore}
-            productionDeploymentId={productionDeploymentId}
-            csrfToken={csrfToken}
-            isDeploying={isDeploying}
-            onBack={handleBackToList}
-            onConfirm={requestConfirmation}
-            onNotify={showNotification}
-            onTriggerDeploy={handleTriggerDeploy}
-            onRefreshDeployments={loadDeployments}
-            onLoadMoreDeployments={loadMoreDeployments}
-            onUploadSuccess={handleUploadSuccess}
-          />
-        )}
+          {view === 'detail' && selectedProject && (
+            <ProjectDetailView
+              selectedProject={selectedProject}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              loadingDeployments={loadingDeployments}
+              deployments={deployments}
+              deploymentsHasMore={deploymentsHasMore}
+              productionDeploymentId={productionDeploymentId}
+              csrfToken={csrfToken}
+              isDeploying={isDeploying}
+              onBack={handleBackToList}
+              onConfirm={requestConfirmation}
+              onNotify={showNotification}
+              onTriggerDeploy={handleTriggerDeploy}
+              onRefreshDeployments={loadDeployments}
+              onLoadMoreDeployments={loadMoreDeployments}
+              onUploadSuccess={handleUploadSuccess}
+            />
+          )}
+        </ErrorBoundary>
       </main>
 
       <Footer />

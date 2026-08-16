@@ -2,9 +2,7 @@ export const toCreateProjectInput = (req) => ({
   name: req.body.name,
 });
 
-export const toProjectInput = (req) => ({
-  projectName: req.params.projectName,
-});
+export { toProjectInput } from '../shared.js';
 
 export const toUpdateProjectBuildConfigInput = (req) => ({
   projectName: req.params.projectName,

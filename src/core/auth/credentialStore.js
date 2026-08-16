@@ -35,6 +35,13 @@ const unwritableError = (dataDir, cause) =>
     { cause },
   );
 
+const corruptCredentialsError = (filePath, cause) =>
+  new CredentialStorageError(
+    `EasyPages: ${filePath} is present but unreadable. Delete that file and re-run the `
+    + 'setup wizard (Docker: rm ./easypages-data/credentials.json).',
+    { cause },
+  );
+
 export const createCredentialStore = ({ dataDir }) => {
   const filePath = path.join(dataDir, CREDENTIALS_FILENAME);
 
@@ -53,7 +60,10 @@ export const createCredentialStore = ({ dataDir }) => {
     return tempPath;
   };
 
-  /** @returns {object|null} the record, or null when absent or unusable. */
+  /**
+   * @returns {object|null} the record, or null when the file is absent.
+   * @throws {CredentialStorageError} when the file exists but is corrupt / unexpected.
+   */
   const read = () => {
     let raw;
     try {
@@ -68,22 +78,26 @@ export const createCredentialStore = ({ dataDir }) => {
     let parsed;
     try {
       parsed = JSON.parse(raw);
-    } catch {
-      // Treated as "not configured" rather than fatal: a truncated file must not stop the
-      // server from booting, and the fix is to delete it and re-run the wizard.
-      console.warn(`[EasyPages] ${filePath} does not contain valid JSON; ignoring it.`);
-      return null;
+    } catch (error) {
+      // Do not reopen the wizard: create() would hit EEXIST on the leftover file.
+      console.error(
+        `[EasyPages] ${filePath} does not contain valid JSON. Delete it to re-run setup.`,
+      );
+      throw corruptCredentialsError(filePath, error);
     }
 
     if (!isValidRecord(parsed)) {
-      console.warn(`[EasyPages] ${filePath} is not in the expected format; ignoring it.`);
-      return null;
+      console.error(
+        `[EasyPages] ${filePath} is not in the expected format. Delete it to re-run setup.`,
+      );
+      throw corruptCredentialsError(filePath);
     }
 
     return parsed;
   };
 
-  const exists = () => read() !== null;
+  /** True when the credential file is on disk (even if corrupt). */
+  const exists = () => fs.existsSync(filePath);
 
   /** @throws {SetupAlreadyCompletedError} when a credential is already there. */
   const create = ({ username, passwordHash }) => {

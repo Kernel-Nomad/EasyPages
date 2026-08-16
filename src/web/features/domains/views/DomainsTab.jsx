@@ -131,8 +131,14 @@ const DomainsTab = ({ project, csrfToken, onConfirm, onNotify }) => {
               className="p-4 flex items-center justify-between hover:bg-gray-50"
             >
               <div className="flex items-center gap-3">
-                <div className={`w-2 h-2 rounded-full ${domain.status === 'active' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                <div
+                  className={`w-2 h-2 rounded-full ${domain.status === 'active' ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                  aria-hidden="true"
+                />
                 <span className="font-mono text-sm text-gray-700">{domain.name}</span>
+                <span className="sr-only">
+                  {domain.status === 'active' ? t('domain_status_active') : t('domain_status_pending')}
+                </span>
                 <a
                   href={`https://${domain.name}`}
                   target="_blank"

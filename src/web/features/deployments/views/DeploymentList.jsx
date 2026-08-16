@@ -26,10 +26,20 @@ const DeploymentItem = ({ deployment, isSelected, onToggle, isProduction }) => {
           className="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-2 focus:ring-orange-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         />
 
-        <div className={`mt-0.5 w-2.5 h-2.5 rounded-full ring-4 ring-opacity-20 ${
-          deployment.status === 'success' ? 'bg-emerald-500 ring-emerald-500' :
-          deployment.status === 'active' ? 'bg-blue-500 ring-blue-500' : 'bg-red-500 ring-red-500'
-        }`} />
+        <div
+          className={`mt-0.5 w-2.5 h-2.5 rounded-full ring-4 ring-opacity-20 ${
+            deployment.status === 'success'
+              ? 'bg-emerald-500 ring-emerald-500'
+              : deployment.status === 'active'
+                ? 'bg-blue-500 ring-blue-500'
+                : deployment.status === 'idle' || deployment.status === 'pending'
+                  ? 'bg-amber-500 ring-amber-500'
+                  : deployment.status === 'canceled' || deployment.status === 'cancelled'
+                    ? 'bg-gray-400 ring-gray-400'
+                    : 'bg-red-500 ring-red-500'
+          }`}
+          aria-hidden="true"
+        />
 
         <div>
           <div className="flex items-center gap-2 mb-1">

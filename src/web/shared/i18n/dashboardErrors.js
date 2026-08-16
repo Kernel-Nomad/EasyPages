@@ -11,6 +11,8 @@ const DASHBOARD_I18N_ERROR_CODES = new Set([
   'cf_unauthorized',
   'cf_forbidden',
   'cf_rate_limited',
+  'cf_account_not_found',
+  'cf_account_ambiguous',
   'csrf_invalid',
 ]);
 

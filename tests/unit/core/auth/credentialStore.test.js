@@ -78,17 +78,23 @@ test('replace overwrites atomically and keeps the mode', () => {
   });
 });
 
-test('corrupt JSON reads as "not configured" rather than failing', () => {
+test('corrupt JSON throws CredentialStorageError instead of pretending setup is open', () => {
   withTempDir((dataDir) => {
     const store = createCredentialStore({ dataDir });
     fs.writeFileSync(store.filePath, '{ this is not json', 'utf8');
 
-    assert.equal(store.read(), null);
-    assert.equal(store.exists(), false);
+    assert.throws(() => store.read(), (error) => {
+      assert.ok(error instanceof CredentialStorageError);
+      assert.equal(error.code, 'storage_unwritable');
+      assert.match(error.message, /unreadable|Delete/i);
+      return true;
+    });
+    // The leftover file still blocks a second create via EEXIST.
+    assert.equal(store.exists(), true);
   });
 });
 
-test('a record of an unexpected shape is ignored', () => {
+test('a record of an unexpected shape throws rather than reopening the wizard', () => {
   withTempDir((dataDir) => {
     const store = createCredentialStore({ dataDir });
     const cases = [
@@ -100,7 +106,11 @@ test('a record of an unexpected shape is ignored', () => {
 
     for (const value of cases) {
       fs.writeFileSync(store.filePath, JSON.stringify(value), 'utf8');
-      assert.equal(store.read(), null, `should ignore: ${JSON.stringify(value)}`);
+      assert.throws(
+        () => store.read(),
+        CredentialStorageError,
+        `should reject: ${JSON.stringify(value)}`,
+      );
     }
   });
 });

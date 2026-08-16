@@ -17,9 +17,7 @@ export const toListDeploymentsInput = (req) => {
   };
 };
 
-export const toProjectInput = (req) => ({
-  projectName: req.params.projectName,
-});
+export { toProjectInput } from '../shared.js';
 
 export const toUploadProjectBundleInput = (req) => ({
   filePath: req.file.path,

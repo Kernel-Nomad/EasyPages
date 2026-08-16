@@ -283,7 +283,7 @@ Hay un `Makefile` con los mismos objetivos (`make setup`, `make dev`, `make lint
 
 ### ¿Has perdido la contraseña?
 
-No hay correo de recuperación. Para la aplicación, borra el fichero de credenciales y
+No hay correo de recuperación. Detén la aplicación, borra el fichero de credenciales y
 arranca de nuevo: vuelve el asistente.
 
 ```bash

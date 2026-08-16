@@ -1,8 +1,9 @@
 import multer from 'multer';
 import { ensureDirectory } from '../utils/files.js';
 import { createHttpError } from '../core/errors/httpError.js';
+import { MAX_UPLOAD_ARCHIVE_BYTES } from '../shared/uploadLimits.js';
 
-export const MAX_UPLOAD_ARCHIVE_BYTES = 100 * 1024 * 1024;
+export { MAX_UPLOAD_ARCHIVE_BYTES };
 export const MAX_ZIP_ENTRY_BYTES = 25 * 1024 * 1024;
 export const MAX_ZIP_TOTAL_UNCOMPRESSED_BYTES = 250 * 1024 * 1024;
 export const MAX_ZIP_ENTRY_COUNT = 2000;

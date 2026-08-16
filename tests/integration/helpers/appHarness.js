@@ -188,9 +188,18 @@ export const createMockCloudflare = (overrides = {}) => ({
             id: 'proj-1',
             name: 'demo',
             subdomain: 'demo.pages.dev',
-            source: { type: 'direct_upload' },
-            latest_deployment: { status: 'success' },
+            source: { type: 'github', config: { owner: 'acme', repo_name: 'demo' } },
+            latest_deployment: {
+              id: 'dep-1',
+              latest_stage: { status: 'success' },
+              url: 'https://demo.pages.dev',
+            },
             build_config: {},
+            deployment_configs: {
+              production: {
+                env_vars: { SECRET: { type: 'secret_text', value: 'should-not-leak' } },
+              },
+            },
           }],
         },
       };
@@ -207,6 +216,13 @@ export const createMockCloudflare = (overrides = {}) => ({
             build_config: { build_command: 'npm run build', destination_dir: 'dist' },
             production_branch: 'main',
             canonical_deployment: { id: 'dep-prod' },
+            source: { type: 'github', config: { owner: 'acme', repo_name: 'demo' } },
+            latest_deployment: { latest_stage: { status: 'success' } },
+            deployment_configs: {
+              production: {
+                env_vars: { SECRET: { type: 'plain_text', value: 'nope' } },
+              },
+            },
           },
         },
       };
@@ -219,14 +235,40 @@ export const createMockCloudflare = (overrides = {}) => ({
       return { data: { result: { id: 'dom-new', name: data.name } } };
     }
     if (pathOnly === '/pages/projects') {
-      return { data: { result: { id: 'proj-new', name: data.name } } };
+      return {
+        data: {
+          result: {
+            id: 'proj-new',
+            name: data.name,
+            subdomain: `${data.name}.pages.dev`,
+            source: {},
+            latest_deployment: null,
+            deployment_configs: {
+              production: { env_vars: { X: { value: 'secret' } } },
+            },
+          },
+        },
+      };
     }
     throw new Error(`unexpected POST ${resourcePath}`);
   },
   patch: async (resourcePath) => {
     const pathOnly = resourcePath.split('?')[0];
     if (pathOnly === '/pages/projects/demo') {
-      return { data: { result: { id: 'proj-1', name: 'demo' } } };
+      return {
+        data: {
+          result: {
+            id: 'proj-1',
+            name: 'demo',
+            subdomain: 'demo.pages.dev',
+            source: { type: 'github', config: { owner: 'acme', repo_name: 'demo' } },
+            latest_deployment: { latest_stage: { status: 'success' } },
+            deployment_configs: {
+              production: { env_vars: { SECRET: { value: 'nope' } } },
+            },
+          },
+        },
+      };
     }
     throw new Error(`unexpected patch ${resourcePath}`);
   },
