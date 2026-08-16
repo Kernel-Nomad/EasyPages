@@ -23,7 +23,7 @@ test('errorHandler: a 403 without EBADCSRFTOKEN keeps the error message, not the
   });
 });
 
-test('errorHandler: EBADCSRFTOKEN answers as a CSRF failure', () => {
+test('errorHandler: EBADCSRFTOKEN answers as a CSRF failure with csrf_invalid', () => {
   const handler = createErrorHandler();
   const err = Object.assign(new Error('Invalid CSRF token'), {
     code: 'EBADCSRFTOKEN',
@@ -40,6 +40,7 @@ test('errorHandler: EBADCSRFTOKEN answers as a CSRF failure', () => {
     json(payload) {
       assert.equal(this.statusCode, 403);
       assert.equal(payload.error, 'Invalid CSRF token');
+      assert.equal(payload.code, 'csrf_invalid');
     },
   };
   handler(err, req, res, () => {
@@ -47,9 +48,9 @@ test('errorHandler: EBADCSRFTOKEN answers as a CSRF failure', () => {
   });
 });
 
-test('errorHandler: si headers ya enviados solo registra y no llama a next', () => {
+test('errorHandler: when headers are already sent it only logs and does not call next', () => {
   const handler = createErrorHandler();
-  const err = new Error('demasiado tarde');
+  const err = new Error('too late');
   const req = { originalUrl: '/api/x', method: 'GET' };
   let nextCalls = 0;
   const res = { headersSent: true };

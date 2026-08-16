@@ -7,6 +7,7 @@ services:
       - "8002:8002"
     environment:
       EASYPAGES_DATA_DIR: /data
+      TRUST_PROXY: "false"
     env_file:
       - .env
     volumes:

@@ -1,8 +1,8 @@
+import { listAllPages } from '../cloudflare/client.js';
 import {
   mapCloudflareProjectSettings,
   mapCloudflareProjectSummary,
   toCloudflareBuildConfig,
-  toCloudflareDeploymentConfigs,
 } from './mappers.js';
 
 export const createProjectsService = ({ cloudflare }) => ({
@@ -16,34 +16,20 @@ export const createProjectsService = ({ cloudflare }) => ({
   },
 
   async getProjectSettings({ projectName }) {
-    const response = await cloudflare.get(`/pages/projects/${projectName}`);
+    const response = await cloudflare.get(`/pages/projects/${encodeURIComponent(projectName)}`);
     return mapCloudflareProjectSettings(response.data.result);
   },
 
   async listProjects() {
-    const response = await cloudflare.get('/pages/projects');
-    return response.data.result.map(mapCloudflareProjectSummary);
+    const projects = await listAllPages(cloudflare, '/pages/projects');
+    return projects.map(mapCloudflareProjectSummary);
   },
 
   async updateProjectBuildConfig({ projectName, buildConfig }) {
-    const response = await cloudflare.patch(`/pages/projects/${projectName}`, {
+    const response = await cloudflare.patch(`/pages/projects/${encodeURIComponent(projectName)}`, {
       build_config: toCloudflareBuildConfig(buildConfig),
     });
 
     return response.data.result;
-  },
-
-  async updateProjectEnv({ projectName, env }) {
-    const currentProjectResponse = await cloudflare.get(`/pages/projects/${projectName}`);
-    const deploymentConfigs = toCloudflareDeploymentConfigs({
-      env,
-      currentDeploymentConfigs: currentProjectResponse.data.result.deployment_configs,
-    });
-
-    await cloudflare.patch(`/pages/projects/${projectName}`, {
-      deployment_configs: deploymentConfigs,
-    });
-
-    return { success: true };
   },
 });

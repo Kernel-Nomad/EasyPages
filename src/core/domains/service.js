@@ -1,16 +1,23 @@
+import { listAllPages } from '../cloudflare/client.js';
+
 export const createDomainsService = ({ cloudflare }) => ({
   async listDomains({ projectName }) {
-    const response = await cloudflare.get(`/pages/projects/${projectName}/domains`);
-    return response.data.result;
+    const encoded = encodeURIComponent(projectName);
+    return listAllPages(cloudflare, `/pages/projects/${encoded}/domains`);
   },
 
   async addDomain({ name, projectName }) {
-    const response = await cloudflare.post(`/pages/projects/${projectName}/domains`, { name });
+    const response = await cloudflare.post(
+      `/pages/projects/${encodeURIComponent(projectName)}/domains`,
+      { name },
+    );
     return response.data.result;
   },
 
   async deleteDomain({ domainName, projectName }) {
-    await cloudflare.delete(`/pages/projects/${projectName}/domains/${domainName}`);
+    await cloudflare.delete(
+      `/pages/projects/${encodeURIComponent(projectName)}/domains/${encodeURIComponent(domainName)}`,
+    );
     return { success: true };
   },
 });

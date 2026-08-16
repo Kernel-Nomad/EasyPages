@@ -29,12 +29,18 @@ RUN --mount=type=cache,target=/pnpm-store \
     pnpm install --prod --frozen-lockfile --ignore-scripts
 
 COPY server.js .
-COPY src ./src
+# Runtime needs the server tree only — the SPA ships as `dist/`, not as `src/web`.
+COPY src/index.js ./src/index.js
+COPY src/api/server ./src/api/server
+COPY src/core ./src/core
+COPY src/config ./src/config
+COPY src/utils ./src/utils
+COPY src/shared ./src/shared
 
 COPY --from=build /app/dist ./dist
 
-# /data is the default EASYPAGES_DATA_DIR: session secret and credentials live there. It is
-# created and chowned here so the image works even when nothing is mounted over it.
+# /data is the default EASYPAGES_DATA_DIR: session secret, credentials and uploads live
+# there. It is created and chowned here so the image works even when nothing is mounted.
 RUN mkdir -p /data && chown -R node:node /app /data
 
 USER node

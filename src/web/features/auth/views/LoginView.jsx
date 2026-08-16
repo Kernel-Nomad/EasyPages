@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { PASSWORD_MAX_LEN, USERNAME_MAX_LEN } from '../../../../shared/authPolicy.js';
+import { PASSWORD_MAX_LEN, PASSWORD_MIN_LEN, USERNAME_MAX_LEN, USERNAME_MIN_LEN } from '../../../../shared/authPolicy.js';
 import { authErrorMessage } from '../../../shared/i18n/authErrors.js';
 import AuthLayout from '../components/AuthLayout';
 
@@ -58,6 +58,8 @@ const LoginView = ({ onSubmit, onToggleLanguage }) => {
             name="username"
             type="text"
             autoComplete="username"
+            spellCheck={false}
+            minLength={USERNAME_MIN_LEN}
             maxLength={USERNAME_MAX_LEN}
             required
             className={FIELD_CLASS}
@@ -73,6 +75,7 @@ const LoginView = ({ onSubmit, onToggleLanguage }) => {
             name="password"
             type="password"
             autoComplete="current-password"
+            minLength={PASSWORD_MIN_LEN}
             maxLength={PASSWORD_MAX_LEN}
             required
             className={FIELD_CLASS}

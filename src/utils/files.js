@@ -4,7 +4,7 @@ import path from 'path';
 
 export const ensureDirectory = (directoryPath) => {
   if (!fs.existsSync(directoryPath)) {
-    fs.mkdirSync(directoryPath, { recursive: true });
+    fs.mkdirSync(directoryPath, { recursive: true, mode: 0o700 });
   }
 };
 
@@ -144,16 +144,21 @@ export const getMimeType = (filename) => {
     '.html': 'text/html',
     '.css': 'text/css',
     '.js': 'application/javascript',
+    '.mjs': 'application/javascript',
     '.json': 'application/json',
+    '.map': 'application/json',
     '.png': 'image/png',
     '.jpg': 'image/jpeg',
     '.jpeg': 'image/jpeg',
+    '.webp': 'image/webp',
     '.svg': 'image/svg+xml',
     '.ico': 'image/x-icon',
     '.txt': 'text/plain',
     '.xml': 'application/xml',
     '.pdf': 'application/pdf',
     '.zip': 'application/zip',
+    '.woff2': 'font/woff2',
+    '.wasm': 'application/wasm',
   };
 
   return types[ext] || 'application/octet-stream';

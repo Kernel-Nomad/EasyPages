@@ -1,28 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { easyPagesClient } from '../../../api/client/easyPagesApi.js';
+import { dashboardErrorMessage } from '../../shared/i18n/dashboardErrors.js';
 
 /** Delay before re-fetching deployments so Cloudflare can register the new deployment. */
 const DEPLOYMENTS_LIST_REFRESH_DELAY_MS = 2000;
-
-const DASHBOARD_I18N_ERROR_CODES = new Set([
-  'validation_error',
-  'invalid_domain',
-  'rate_limited',
-]);
-
-/** Prefer a translated string when the backend sent a known stable code. */
-const dashboardErrorMessage = (error, fallbackKey, t) => {
-  if (error?.code && DASHBOARD_I18N_ERROR_CODES.has(error.code)) {
-    return t(error.code);
-  }
-  return error.message || t(fallbackKey);
-};
 
 export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) => {
   const [view, setView] = useState('list');
   const [selectedProject, setSelectedProject] = useState(null);
   const [activeTab, setActiveTab] = useState('deployments');
   const [projects, setProjects] = useState([]);
+  const [projectsLoadError, setProjectsLoadError] = useState(false);
   const [deployments, setDeployments] = useState([]);
   const [productionDeploymentId, setProductionDeploymentId] = useState(null);
   const [deploymentsPage, setDeploymentsPage] = useState(1);
@@ -33,8 +21,10 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) =
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState(null);
   const deploymentsAbortControllerRef = useRef(null);
   const deploymentsRefreshTimeoutRef = useRef(null);
+  const deploymentsGenerationRef = useRef(0);
 
   const clearScheduledDeploymentsRefresh = () => {
     if (deploymentsRefreshTimeoutRef.current) {
@@ -45,6 +35,7 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) =
 
   const loadProjects = async () => {
     setLoading(true);
+    setProjectsLoadError(false);
 
     try {
       const data = await easyPagesClient.fetchProjects();
@@ -52,6 +43,7 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) =
     } catch (error) {
       if (!isSecurityError(error)) {
         console.error(error);
+        setProjectsLoadError(true);
         onNotify('error', dashboardErrorMessage(error, 'project_list_error', t));
       }
     } finally {
@@ -60,11 +52,12 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) =
   };
 
   const loadDeployments = async (projectName, { append = false, page = 1, signal } = {}) => {
+    const generation = deploymentsGenerationRef.current;
     setLoadingDeployments(true);
 
     try {
       const data = await easyPagesClient.fetchDeployments(projectName, { page, signal });
-      if (signal?.aborted) {
+      if (signal?.aborted || generation !== deploymentsGenerationRef.current) {
         return;
       }
 
@@ -77,12 +70,15 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) =
       if (error?.name === 'AbortError') {
         return;
       }
+      if (generation !== deploymentsGenerationRef.current) {
+        return;
+      }
       if (!isSecurityError(error)) {
         console.error('Error loading deployments:', error);
         onNotify('error', dashboardErrorMessage(error, 'deploy_load_error', t));
       }
     } finally {
-      if (!signal?.aborted) {
+      if (!signal?.aborted && generation === deploymentsGenerationRef.current) {
         setLoadingDeployments(false);
       }
     }
@@ -93,14 +89,21 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) =
       return;
     }
 
+    deploymentsAbortControllerRef.current?.abort();
+    const nextController = new AbortController();
+    deploymentsAbortControllerRef.current = nextController;
+
     await loadDeployments(selectedProject.name, {
       append: true,
       page: deploymentsPage + 1,
+      signal: nextController.signal,
     });
   };
 
   useEffect(() => {
     if (selectedProject && view === 'detail') {
+      clearScheduledDeploymentsRefresh();
+      deploymentsGenerationRef.current += 1;
       deploymentsAbortControllerRef.current?.abort();
       const nextController = new AbortController();
       deploymentsAbortControllerRef.current = nextController;
@@ -131,6 +134,7 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) =
       return;
     }
     const projectName = selectedProject.name;
+    const generationAtTrigger = deploymentsGenerationRef.current;
 
     setIsDeploying(true);
 
@@ -143,6 +147,9 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) =
       onNotify('success', t('deploy_success'));
       clearScheduledDeploymentsRefresh();
       deploymentsRefreshTimeoutRef.current = setTimeout(() => {
+        if (generationAtTrigger !== deploymentsGenerationRef.current) {
+          return;
+        }
         loadDeployments(projectName);
       }, DEPLOYMENTS_LIST_REFRESH_DELAY_MS);
     } catch (error) {
@@ -157,6 +164,7 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) =
   const handleCreateProject = async (event) => {
     event.preventDefault();
     setCreating(true);
+    setCreateError(null);
 
     try {
       await easyPagesClient.createProject({
@@ -167,10 +175,13 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) =
       onNotify('success', t('create_success'));
       setShowCreateModal(false);
       setNewProjectName('');
+      setCreateError(null);
       await loadProjects();
     } catch (error) {
       if (!isSecurityError(error)) {
-        onNotify('error', dashboardErrorMessage(error, 'create_error', t));
+        const message = dashboardErrorMessage(error, 'create_error', t);
+        setCreateError(message);
+        onNotify('error', message);
       }
     } finally {
       setCreating(false);
@@ -178,6 +189,9 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) =
   };
 
   const handleProjectClick = (project) => {
+    clearScheduledDeploymentsRefresh();
+    deploymentsGenerationRef.current += 1;
+    deploymentsAbortControllerRef.current?.abort();
     setSelectedProject(project);
     setView('detail');
     setActiveTab('deployments');
@@ -185,6 +199,8 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) =
 
   const handleBack = () => {
     clearScheduledDeploymentsRefresh();
+    deploymentsGenerationRef.current += 1;
+    deploymentsAbortControllerRef.current?.abort();
     setSelectedProject(null);
     setView('list');
     setDeployments([]);
@@ -204,8 +220,22 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) =
     onNotify('success', t('upload_success_msg'));
   };
 
+  const openCreateModal = () => {
+    setCreateError(null);
+    setShowCreateModal(true);
+  };
+
+  const closeCreateModal = () => {
+    if (creating) {
+      return;
+    }
+    setShowCreateModal(false);
+    setCreateError(null);
+  };
+
   return {
     activeTab,
+    createError,
     creating,
     deployments,
     deploymentsHasMore,
@@ -221,8 +251,11 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) =
     loading,
     loadingDeployments,
     newProjectName,
+    openCreateModal,
+    closeCreateModal,
     productionDeploymentId,
     projects,
+    projectsLoadError,
     selectedProject,
     setActiveTab,
     setNewProjectName,

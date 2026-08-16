@@ -29,7 +29,7 @@ export const createUploadMiddleware = ({
         return;
       }
 
-      callback(createHttpError(400, 'Only ZIP files are allowed.'));
+      callback(createHttpError(400, 'Only ZIP files are allowed.', { code: 'validation_error' }));
     },
   });
 };

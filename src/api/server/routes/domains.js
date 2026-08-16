@@ -5,10 +5,7 @@ import {
   normalizeDomainName,
 } from '../../../core/domains/validation.js';
 import { isValidProjectName } from '../../../core/projects/validation.js';
-import { sendErrorResponse } from '../http.js';
-
-const sendValidationError = (res, message, code = 'validation_error') =>
-  res.status(400).json({ error: message, code });
+import { sendErrorResponse, sendValidationError } from '../http.js';
 
 export const createDomainsRouter = ({ cloudflare }) => {
   const router = express.Router();

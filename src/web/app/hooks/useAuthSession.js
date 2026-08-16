@@ -156,18 +156,14 @@ export const useAuthSession = () => {
 };
 
 /**
- * Errors the dashboard should stay quiet about: the auth layer is already reacting.
- *
- * The server's own codes sit alongside the client-side fallbacks because the API client
- * prefers the code the backend sent. Matching only the fallbacks left every expired session
- * showing a stray error toast behind the login form.
+ * Errors the dashboard should stay quiet about: the auth layer is already reacting
+ * (switching to login/setup). CSRF failures and other security errors are NOT silent —
+ * the operator needs a toast when a retry fails while they stay on the dashboard.
  */
 const SILENT_ERROR_CODES = new Set([
   'AUTH_REQUIRED',
-  'SECURITY_ERROR',
   'session_expired',
   'setup_required',
-  'csrf_invalid',
 ]);
 
 export const isSecurityError = (error) => SILENT_ERROR_CODES.has(error?.code);

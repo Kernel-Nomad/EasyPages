@@ -3,38 +3,63 @@ import { Loader2, Terminal } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { easyPagesClient } from '../../../../api/client/easyPagesApi.js';
 import { isSecurityError } from '../../../app/hooks/useAuthSession.js';
+import { dashboardErrorMessage } from '../../../shared/i18n/dashboardErrors.js';
 
 const SettingsTab = ({ project, csrfToken, onNotify }) => {
   const { t } = useTranslation();
   const [buildConfig, setBuildConfig] = useState({ command: '', output_dir: '' });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [savingBuild, setSavingBuild] = useState(false);
 
-  const loadSettings = async () => {
-    setLoading(true);
-
-    try {
-      const data = await easyPagesClient.fetchProjectSettings(project.name);
-      setBuildConfig({
-        command: data.build_config?.command || '',
-        output_dir: data.build_config?.output_dir || '',
-      });
-    } catch (error) {
-      if (!isSecurityError(error)) {
-        console.error(error);
-        onNotify('error', error.message || t('config_load_error'));
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const controller = new AbortController();
+    let cancelled = false;
+
+    const loadSettings = async () => {
+      setLoading(true);
+      setLoadError(false);
+
+      try {
+        const data = await easyPagesClient.fetchProjectSettings(project.name);
+        if (cancelled || controller.signal.aborted) {
+          return;
+        }
+        setBuildConfig({
+          command: data.build_config?.command || '',
+          output_dir: data.build_config?.output_dir || '',
+        });
+      } catch (error) {
+        if (cancelled || controller.signal.aborted || error?.name === 'AbortError') {
+          return;
+        }
+        if (!isSecurityError(error)) {
+          console.error(error);
+          setLoadError(true);
+          onNotify('error', dashboardErrorMessage(error, 'config_load_error', t));
+        }
+      } finally {
+        if (!cancelled && !controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    };
+
     loadSettings();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadSettings is recreated each render
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload only when the project changes
   }, [project.name]);
 
-  const handleSaveBuild = async () => {
+  const handleSaveBuild = async (event) => {
+    event.preventDefault();
+    if (loadError) {
+      return;
+    }
+
     setSavingBuild(true);
 
     try {
@@ -46,7 +71,7 @@ const SettingsTab = ({ project, csrfToken, onNotify }) => {
       onNotify('success', t('config_saved'));
     } catch (error) {
       if (!isSecurityError(error)) {
-        onNotify('error', error.message || t('config_save_error'));
+        onNotify('error', dashboardErrorMessage(error, 'config_save_error', t));
       }
     } finally {
       setSavingBuild(false);
@@ -55,22 +80,58 @@ const SettingsTab = ({ project, csrfToken, onNotify }) => {
 
   if (loading) {
     return (
-      <div className="p-12 text-center flex flex-col items-center gap-3">
+      <div className="p-12 text-center flex flex-col items-center gap-3" role="status">
         <Loader2 className="animate-spin text-orange-500" size={32} />
         <p className="text-gray-500 text-sm">{t('loading_config')}</p>
       </div>
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="p-12 text-center space-y-3">
+        <p className="text-sm text-gray-600">{t('config_load_error')}</p>
+        <button
+          type="button"
+          onClick={() => {
+            setLoading(true);
+            setLoadError(false);
+            easyPagesClient.fetchProjectSettings(project.name)
+              .then((data) => {
+                setBuildConfig({
+                  command: data.build_config?.command || '',
+                  output_dir: data.build_config?.output_dir || '',
+                });
+                setLoadError(false);
+              })
+              .catch((error) => {
+                if (!isSecurityError(error)) {
+                  setLoadError(true);
+                  onNotify('error', dashboardErrorMessage(error, 'config_load_error', t));
+                }
+              })
+              .finally(() => setLoading(false));
+          }}
+          className="text-sm bg-gray-900 text-white px-3 py-1.5 rounded hover:bg-black transition-colors"
+        >
+          {t('auth_retry')}
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 pb-10">
-      <section className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+      <form
+        onSubmit={handleSaveBuild}
+        className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm"
+      >
         <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
           <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-            <Terminal size={18} /> {t('build_config_title')}
+            <Terminal size={18} aria-hidden="true" /> {t('build_config_title')}
           </h3>
           <button
-            onClick={handleSaveBuild}
+            type="submit"
             disabled={savingBuild}
             className="text-sm bg-gray-900 text-white px-3 py-1.5 rounded hover:bg-black disabled:opacity-50 transition-colors flex items-center gap-2"
           >
@@ -102,7 +163,7 @@ const SettingsTab = ({ project, csrfToken, onNotify }) => {
             />
           </div>
         </div>
-      </section>
+      </form>
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import express from 'express';
 import { createProjectsService } from '../../../../core/projects/service.js';
-import { sendErrorResponse } from '../../http.js';
+import { sendErrorResponse, sendValidationError } from '../../http.js';
 import {
   toCreateProjectInput,
   toProjectInput,
@@ -11,9 +11,6 @@ import {
   validateProjectBuildConfigRequest,
   validateProjectNameParam,
 } from './validation.js';
-
-const sendValidationError = (res, message) =>
-  res.status(400).json({ error: message, code: 'validation_error' });
 
 export const createProjectsRouter = ({ cloudflare, createProjectLimiter }) => {
   const router = express.Router();
@@ -49,7 +46,7 @@ export const createProjectsRouter = ({ cloudflare, createProjectLimiter }) => {
     }
   });
 
-  router.get('/projects/:projectName/env', async (req, res) => {
+  router.get('/projects/:projectName/settings', async (req, res) => {
     try {
       const projectNameError = validateProjectNameParam(req.params.projectName);
       if (projectNameError) {
@@ -71,7 +68,7 @@ export const createProjectsRouter = ({ cloudflare, createProjectLimiter }) => {
       }
 
       const project = await projectsService.createProject(toCreateProjectInput(req));
-      res.json(project);
+      res.status(201).json(project);
     } catch (error) {
       sendErrorResponse(res, error, 'Failed to create the project', req);
     }

@@ -3,7 +3,8 @@ import { isValidProjectName } from '../../../../core/projects/validation.js';
 const MAX_DELETE_DEPLOYMENT_IDS = 500;
 
 const isValidDeploymentId = (value) =>
-  typeof value === 'string' && value.trim().length > 0;
+  typeof value === 'string'
+  && /^[A-Za-z0-9._-]{1,128}$/.test(value.trim());
 
 export const validateDeploymentDeleteRequest = (body) => {
   if (!Array.isArray(body?.deploymentIds) || body.deploymentIds.length === 0) {

@@ -38,14 +38,12 @@ export default [
     },
   },
 
-  // Browser side: the React bundle, the API client it imports, and the loose scripts in
-  // public/ that the server serves directly.
+  // Browser side: the React bundle and the API client it imports.
   {
     files: [
       'src/web/**/*.{js,jsx}',
       'src/api/client/**/*.js',
       'src/shared/**/*.js',
-      'public/**/*.js',
     ],
     languageOptions: {
       ecmaVersion: 2023,

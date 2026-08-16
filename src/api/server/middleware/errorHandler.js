@@ -36,21 +36,21 @@ export const createErrorHandler = () => (err, req, res, _next) => {
 
   if (api) {
     const message =
-      status === 500 && !expose
+      status >= 500 && !expose
         ? 'Internal server error'
         : (err?.message || 'The request failed.');
     const payload = { error: message };
     // The stable code is the contract with the SPA — `error` is for curl and logs. Not
-    // forwarded on a 500 unless the error opted in.
+    // forwarded on a 5xx unless the error opted in.
     if ((status < 500 || expose) && typeof err?.code === 'string') {
       payload.code = err.code;
     }
-    if (err?.details !== undefined) {
+    if (err?.details !== undefined && (status < 500 || expose)) {
       payload.details = err.details;
     }
     res.status(status).json(payload);
     return;
   }
 
-  res.status(status).send(status === 500 && !expose ? 'Internal server error' : (err?.message || 'Error'));
+  res.status(status).send(status >= 500 && !expose ? 'Internal server error' : (err?.message || 'Error'));
 };

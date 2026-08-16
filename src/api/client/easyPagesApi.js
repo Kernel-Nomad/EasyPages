@@ -149,7 +149,8 @@ export const deleteDomain = ({ projectName, csrfToken, domainName }) =>
     csrfToken,
   });
 
-export const fetchProjectSettings = (projectName) => fetch(`${projectApiPath(projectName)}/env`);
+export const fetchProjectSettings = (projectName) =>
+  fetch(`${projectApiPath(projectName)}/settings`);
 
 export const updateProjectBuildConfig = ({ projectName, csrfToken, buildConfig }) =>
   easyPagesFetch(projectApiPath(projectName), {
@@ -196,6 +197,28 @@ const buildApiError = async (response, fallbackMessage, fallbackCode = 'REQUEST_
 };
 
 /**
+ * Only `csrf_invalid` is recoverable by refreshing the token. Any other 403 (path
+ * traversal, policy) must not trigger a retry that would re-send the same request.
+ */
+const tryCsrfRetry = async (response, hasRetried, executeRequest) => {
+  if (hasRetried || response.status !== 403) {
+    return null;
+  }
+
+  const peekPayload = await parseResponsePayload(response.clone());
+  if (peekPayload?.code !== 'csrf_invalid') {
+    return null;
+  }
+
+  const refreshedCsrfToken = await apiHooks.onForbidden?.(response);
+  if (!refreshedCsrfToken) {
+    return null;
+  }
+
+  return executeRequest(refreshedCsrfToken, true);
+};
+
+/**
  * Tier 1 — dashboard endpoints. A 401 here can only mean the session went away, so it
  * hands control to `onUnauthorized` and the SPA switches to the login screen.
  */
@@ -211,18 +234,19 @@ const requestApi = async (
       throw await buildApiError(response, 'Session expired.', 'AUTH_REQUIRED');
     }
 
-    if (response.status === 403) {
-      const refreshedCsrfToken = !hasRetried ? await apiHooks.onForbidden?.(response) : null;
-
-      if (retryOnForbidden && refreshedCsrfToken) {
-        return executeRequest(refreshedCsrfToken, true);
+    if (retryOnForbidden && response.status === 403) {
+      const retried = await tryCsrfRetry(response, hasRetried, executeRequest);
+      if (retried !== null) {
+        return retried;
       }
-
-      throw await buildApiError(response, 'Security error.', 'SECURITY_ERROR');
     }
 
     if (!response.ok) {
-      throw await buildApiError(response, fallbackMessage);
+      throw await buildApiError(
+        response,
+        response.status === 403 ? 'Security error.' : fallbackMessage,
+        response.status === 403 ? 'SECURITY_ERROR' : 'REQUEST_FAILED',
+      );
     }
 
     if (parse === 'raw') {
@@ -249,9 +273,9 @@ const publicAuthRequest = async (requestFactory, { fallbackMessage } = {}) => {
     const response = await requestFactory(csrfTokenOverride);
 
     if (response.status === 403) {
-      const refreshedCsrfToken = !hasRetried ? await apiHooks.onForbidden?.(response) : null;
-      if (refreshedCsrfToken) {
-        return executeRequest(refreshedCsrfToken, true);
+      const retried = await tryCsrfRetry(response, hasRetried, executeRequest);
+      if (retried !== null) {
+        return retried;
       }
       throw await buildApiError(response, fallbackMessage, 'SECURITY_ERROR');
     }
@@ -278,9 +302,9 @@ const sessionAwareRequest = async (requestFactory, { fallbackMessage } = {}) => 
     const response = await requestFactory(csrfTokenOverride);
 
     if (response.status === 403) {
-      const refreshedCsrfToken = !hasRetried ? await apiHooks.onForbidden?.(response) : null;
-      if (refreshedCsrfToken) {
-        return executeRequest(refreshedCsrfToken, true);
+      const retried = await tryCsrfRetry(response, hasRetried, executeRequest);
+      if (retried !== null) {
+        return retried;
       }
       throw await buildApiError(response, fallbackMessage, 'SECURITY_ERROR');
     }

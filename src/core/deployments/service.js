@@ -3,9 +3,12 @@ import { uploadProjectBundle as processUploadProjectBundle } from './upload.js';
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const MAX_DEPLOYMENT_CANDIDATE_PAGES = 50;
 
-export const createDeploymentsService = ({ cloudflare, uploadLimits }) => ({
+const projectPath = (projectName) => `/pages/projects/${encodeURIComponent(projectName)}`;
+
+export const createDeploymentsService = ({ cloudflare, uploadLimits, sleepFn = sleep }) => ({
   async deleteDeployments({ deploymentIds, projectName }) {
-    const projectResponse = await cloudflare.get(`/pages/projects/${projectName}`);
+    const encodedProject = projectPath(projectName);
+    const projectResponse = await cloudflare.get(encodedProject);
     const productionId = projectResponse.data.result.canonical_deployment?.id;
     const results = { success: 0, failed: 0, skipped: 0 };
 
@@ -17,9 +20,11 @@ export const createDeploymentsService = ({ cloudflare, uploadLimits }) => ({
       }
 
       try {
-        await cloudflare.delete(`/pages/projects/${projectName}/deployments/${id}?force=true`);
+        await cloudflare.delete(
+          `${encodedProject}/deployments/${encodeURIComponent(id)}?force=true`,
+        );
         results.success += 1;
-        await sleep(100);
+        await sleepFn(100);
       } catch (error) {
         console.error(`Error deleting ${id}:`, error.message);
         results.failed += 1;
@@ -30,7 +35,8 @@ export const createDeploymentsService = ({ cloudflare, uploadLimits }) => ({
   },
 
   async getDeleteCandidates({ projectName }) {
-    const projectResponse = await cloudflare.get(`/pages/projects/${projectName}`);
+    const encodedProject = projectPath(projectName);
+    const projectResponse = await cloudflare.get(encodedProject);
     const productionId = projectResponse.data.result.canonical_deployment?.id;
 
     let page = 1;
@@ -42,11 +48,13 @@ export const createDeploymentsService = ({ cloudflare, uploadLimits }) => ({
     while (keepFetching) {
       try {
         const deploymentResponse = await cloudflare.get(
-          `/pages/projects/${projectName}/deployments?per_page=25&page=${page}`,
+          `${encodedProject}/deployments?per_page=25&page=${page}`,
         );
-        const deployments = deploymentResponse.data.result;
+        const deployments = Array.isArray(deploymentResponse.data.result)
+          ? deploymentResponse.data.result
+          : [];
 
-        if (!deployments || deployments.length === 0) {
+        if (deployments.length === 0) {
           keepFetching = false;
         } else {
           const ids = deployments.map((deployment) => deployment.id);
@@ -76,14 +84,17 @@ export const createDeploymentsService = ({ cloudflare, uploadLimits }) => ({
 
   async listDeployments({ projectName, page = 1 }) {
     const perPage = 25;
+    const encodedProject = projectPath(projectName);
     const [projectResponse, deploymentsResponse] = await Promise.all([
-      cloudflare.get(`/pages/projects/${projectName}`),
+      cloudflare.get(encodedProject),
       cloudflare.get(
-        `/pages/projects/${projectName}/deployments?per_page=${perPage}&page=${page}&sort_by=created_on&sort_order=desc`,
+        `${encodedProject}/deployments?per_page=${perPage}&page=${page}&sort_by=created_on&sort_order=desc`,
       ),
     ]);
 
-    const deployments = deploymentsResponse.data.result || [];
+    const deployments = Array.isArray(deploymentsResponse.data.result)
+      ? deploymentsResponse.data.result
+      : [];
     const totalCount = deploymentsResponse.data.result_info?.total_count;
     const hasMore = typeof totalCount === 'number'
       ? page * perPage < totalCount
@@ -98,7 +109,10 @@ export const createDeploymentsService = ({ cloudflare, uploadLimits }) => ({
   },
 
   async triggerDeployment({ projectName }) {
-    const response = await cloudflare.post(`/pages/projects/${projectName}/deployments`, {});
+    const response = await cloudflare.post(
+      `${projectPath(projectName)}/deployments`,
+      {},
+    );
     return response.data.result;
   },
 

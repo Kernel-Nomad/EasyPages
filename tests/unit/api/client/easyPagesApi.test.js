@@ -168,6 +168,30 @@ test('a 403 refreshes the CSRF token and retries exactly once', async () => {
   assert.deepEqual(sentTokens, ['stale', 'fresh-token']);
 });
 
+test('a 403 without csrf_invalid does not retry', async () => {
+  let calls = 0;
+  let forbiddenCalls = 0;
+  configureEasyPagesApi({ onForbidden: () => {
+    forbiddenCalls += 1;
+    return 'fresh-token';
+  } });
+  globalThis.fetch = () => {
+    calls += 1;
+    return Promise.resolve(jsonResponse({ error: 'Invalid file path.' }, 403));
+  };
+
+  await assert.rejects(
+    () => easyPagesClient.createProject({ csrfToken: 't', name: 'demo' }),
+    (error) => {
+      assert.equal(error.status, 403);
+      return true;
+    },
+  );
+
+  assert.equal(calls, 1);
+  assert.equal(forbiddenCalls, 0);
+});
+
 test('tier 2: login refreshes the CSRF token and retries exactly once on 403', async () => {
   const sentTokens = [];
   let calls = 0;

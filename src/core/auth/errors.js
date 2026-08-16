@@ -25,13 +25,6 @@ export class SetupRequiredError extends AuthError {
   }
 }
 
-/** Says nothing about which of the two was wrong. */
-export class InvalidCredentialsError extends AuthError {
-  constructor() {
-    super('Wrong username or password.', 'invalid_credentials');
-  }
-}
-
 export class InvalidCurrentPasswordError extends AuthError {
   constructor() {
     super('The current password is not correct.', 'invalid_current_password');

@@ -3,10 +3,16 @@ import { AlertTriangle, Clock, ExternalLink, GitBranch, Hash, Loader2, Trash2 } 
 import { useTranslation } from 'react-i18next';
 import { easyPagesClient } from '../../../../api/client/easyPagesApi.js';
 import { isSecurityError } from '../../../app/hooks/useAuthSession.js';
+import { dashboardErrorMessage } from '../../../shared/i18n/dashboardErrors.js';
 import StatusBadge from '../../../shared/ui/StatusBadge';
 
 const DeploymentItem = ({ deployment, isSelected, onToggle, isProduction }) => {
   const { t, i18n } = useTranslation();
+  const checkboxLabel = isProduction
+    ? `${deployment.id} (${t('production_badge')})`
+    : (deployment.deployment_trigger?.metadata?.commit_message
+      || deployment.message
+      || deployment.id);
 
   return (
     <div className={`flex items-center justify-between p-4 border-b border-gray-100 last:border-0 transition-colors group ${isSelected ? 'bg-orange-50' : 'hover:bg-gray-50'}`}>
@@ -14,8 +20,10 @@ const DeploymentItem = ({ deployment, isSelected, onToggle, isProduction }) => {
         <input
           type="checkbox"
           checked={isSelected}
+          disabled={isProduction}
           onChange={() => onToggle(deployment.id)}
-          className="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-50 cursor-pointer"
+          aria-label={checkboxLabel}
+          className="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-2 focus:ring-orange-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         />
 
         <div className={`mt-0.5 w-2.5 h-2.5 rounded-full ring-4 ring-opacity-20 ${
@@ -37,17 +45,17 @@ const DeploymentItem = ({ deployment, isSelected, onToggle, isProduction }) => {
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
             <span className="flex items-center gap-1 bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">
-              <GitBranch size={10} />
+              <GitBranch size={10} aria-hidden="true" />
               {deployment.deployment_trigger?.metadata?.branch || deployment.branch || t('default_branch')}
             </span>
 
             <span className="flex items-center gap-1 font-mono">
-              <Hash size={10} />
+              <Hash size={10} aria-hidden="true" />
               {deployment.deployment_trigger?.metadata?.commit_hash?.substring(0, 7) || deployment.commit_hash?.substring(0, 7) || '----'}
             </span>
 
             <span className="flex items-center gap-1">
-              <Clock size={10} />
+              <Clock size={10} aria-hidden="true" />
               {new Date(deployment.created_on).toLocaleString(i18n.language)}
             </span>
           </div>
@@ -62,11 +70,11 @@ const DeploymentItem = ({ deployment, isSelected, onToggle, isProduction }) => {
             href={deployment.url}
             target="_blank"
             rel="noreferrer"
-            className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-full"
+            className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-full focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
             title={t('view_deploy')}
             aria-label={t('view_deploy')}
           >
-            <ExternalLink size={18} />
+            <ExternalLink size={18} aria-hidden="true" />
           </a>
         )}
       </div>
@@ -94,17 +102,21 @@ const DeploymentList = ({
 
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [deployments]);
+  }, [projectName]);
 
   useEffect(() => {
     if (!selectAllRef.current) {
       return;
     }
-    const partial = selectedIds.size > 0 && selectedIds.size < deployments.length;
+    const selectable = deployments.filter((d) => d.id !== productionDeploymentId);
+    const partial = selectedIds.size > 0 && selectedIds.size < selectable.length;
     selectAllRef.current.indeterminate = partial;
-  }, [selectedIds, deployments.length]);
+  }, [selectedIds, deployments, productionDeploymentId]);
 
   const handleToggle = (id) => {
+    if (id === productionDeploymentId) {
+      return;
+    }
     const newSet = new Set(selectedIds);
     if (newSet.has(id)) {
       newSet.delete(id);
@@ -116,7 +128,9 @@ const DeploymentList = ({
 
   const handleSelectAll = (event) => {
     if (event.target.checked) {
-      const ids = deployments.map((deployment) => deployment.id);
+      const ids = deployments
+        .filter((deployment) => deployment.id !== productionDeploymentId)
+        .map((deployment) => deployment.id);
       setSelectedIds(new Set(ids));
     } else {
       setSelectedIds(new Set());
@@ -150,18 +164,28 @@ const DeploymentList = ({
     setIsDeleting(true);
 
     try {
-      const result = await easyPagesClient.deleteDeployments({
-        projectName,
-        csrfToken,
-        deploymentIds: Array.from(selectedIds),
-      });
+      const ids = Array.from(selectedIds);
+      const chunkSize = 5;
+      const results = { failed: 0, skipped: 0, success: 0 };
 
-      notifyDeleteResult(result);
+      for (let index = 0; index < ids.length; index += chunkSize) {
+        const chunk = ids.slice(index, index + chunkSize);
+        const chunkResult = await easyPagesClient.deleteDeployments({
+          projectName,
+          csrfToken,
+          deploymentIds: chunk,
+        });
+        results.failed += chunkResult.failed;
+        results.success += chunkResult.success;
+        results.skipped += chunkResult.skipped || 0;
+      }
+
+      notifyDeleteResult(results);
       await onRefresh();
     } catch (error) {
       if (!isSecurityError(error)) {
         console.error(error);
-        onNotify('error', error.message || t('deploy_delete_error'));
+        onNotify('error', dashboardErrorMessage(error, 'deploy_delete_error', t));
       }
     } finally {
       setIsDeleting(false);
@@ -181,7 +205,6 @@ const DeploymentList = ({
     }
 
     setIsDeleting(true);
-    setProgress({ current: 0, total: 100 });
 
     try {
       const data = await easyPagesClient.fetchDeploymentDeleteCandidates(projectName);
@@ -196,7 +219,6 @@ const DeploymentList = ({
         });
         if (!proceed) {
           setIsDeleting(false);
-          setProgress({ current: 0, total: 0 });
           return;
         }
       }
@@ -204,7 +226,6 @@ const DeploymentList = ({
       if (idsToDelete.length === 0) {
         onNotify('info', t('deploy_delete_none'));
         setIsDeleting(false);
-        setProgress({ current: 0, total: 0 });
         return;
       }
 
@@ -236,7 +257,7 @@ const DeploymentList = ({
     } catch (error) {
       if (!isSecurityError(error)) {
         console.error(error);
-        onNotify('error', error.message || t('deploy_delete_error'));
+        onNotify('error', dashboardErrorMessage(error, 'deploy_delete_error', t));
       }
     } finally {
       setIsDeleting(false);
@@ -244,8 +265,10 @@ const DeploymentList = ({
     }
   };
 
+  const selectableCount = deployments.filter((d) => d.id !== productionDeploymentId).length;
+
   return (
-    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden animate-in fade-in duration-300 shadow-sm relative">
+    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm relative">
       {isDeleting && progress.total > 0 && (
         <div className="absolute inset-0 z-50 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center p-8 gap-4">
           <Loader2 size={40} className="animate-spin text-orange-600" />
@@ -269,9 +292,10 @@ const DeploymentList = ({
           <input
             ref={selectAllRef}
             type="checkbox"
-            checked={selectedIds.size > 0 && selectedIds.size === deployments.length}
+            checked={selectedIds.size > 0 && selectedIds.size === selectableCount && selectableCount > 0}
             onChange={handleSelectAll}
-            className="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-50"
+            aria-label={t('select_all')}
+            className="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-2 focus:ring-orange-500"
           />
           <span className="text-sm text-gray-600">
             {selectedIds.size > 0 ? t('selected_count', { count: selectedIds.size }) : t('select_all')}

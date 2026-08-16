@@ -133,19 +133,66 @@ test('createAccountIdResolver reports a token that sees no account at all', asyn
   });
 });
 
-test('createAccountIdResolver does not cache failures: a network blip recovers on its own', async () => {
-  let calls = 0;
-  const resolve = createAccountIdResolver({
-    listAccounts: async () => {
-      calls += 1;
-      if (calls === 1) {
-        throw Object.assign(new Error('Could not connect to Cloudflare'), { status: 502 });
-      }
-      return [{ id: 'only-acc' }];
-    },
-    log: () => {},
-  });
+test('normalizeCloudflareError maps 401/403/429 away from session statuses', async () => {
+  const { normalizeCloudflareError } = await import('../../../../src/core/cloudflare/client.js');
 
-  await assert.rejects(resolve, /Could not connect/);
-  assert.equal(await resolve(), 'only-acc', 'the next attempt asks again');
+  const unauthorized = normalizeCloudflareError(
+    { response: { status: 401, data: { errors: [{ message: 'Invalid token' }] } } },
+    'fallback',
+  );
+  assert.equal(unauthorized.status, 502);
+  assert.equal(unauthorized.code, 'cf_unauthorized');
+  assert.equal(unauthorized.expose, true);
+  assert.match(unauthorized.message, /Invalid token/);
+
+  const forbidden = normalizeCloudflareError(
+    { response: { status: 403, data: { errors: [{ message: 'No access' }] } } },
+    'fallback',
+  );
+  assert.equal(forbidden.status, 502);
+  assert.equal(forbidden.code, 'cf_forbidden');
+  assert.equal(forbidden.expose, true);
+
+  const rateLimited = normalizeCloudflareError(
+    { response: { status: 429, data: { errors: [{ message: 'Slow down' }] } } },
+    'fallback',
+  );
+  assert.equal(rateLimited.status, 503);
+  assert.equal(rateLimited.code, 'cf_rate_limited');
+
+  const notFound = normalizeCloudflareError(
+    { response: { status: 404, data: { errors: [{ message: 'Missing' }] } } },
+    'fallback',
+  );
+  assert.equal(notFound.status, 404);
+  assert.equal(notFound.code, undefined);
+});
+
+test('listAllPages walks until a short page', async () => {
+  const { listAllPages } = await import('../../../../src/core/cloudflare/client.js');
+  const calls = [];
+  const cloudflare = {
+    get: async (path) => {
+      calls.push(path);
+      if (path.includes('page=1')) {
+        return { data: { result: [{ id: 'a' }, { id: 'b' }] } };
+      }
+      if (path.includes('page=2')) {
+        return { data: { result: [{ id: 'c' }] } };
+      }
+      return { data: { result: [] } };
+    },
+  };
+
+  const all = await listAllPages(cloudflare, '/pages/projects', { perPage: 2 });
+  assert.deepEqual(all.map((row) => row.id), ['a', 'b', 'c']);
+  assert.equal(calls.length, 2);
+});
+
+test('listAllPages treats a non-array result as empty', async () => {
+  const { listAllPages } = await import('../../../../src/core/cloudflare/client.js');
+  const cloudflare = {
+    get: async () => ({ data: { result: null } }),
+  };
+  assert.deepEqual(await listAllPages(cloudflare, '/pages/projects'), []);
 });

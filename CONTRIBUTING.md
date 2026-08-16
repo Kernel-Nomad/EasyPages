@@ -110,7 +110,7 @@ Keep these rules intact:
 Changes here need extra care and matching tests:
 
 - **Auth, session, CSRF**: `src/api/server/app.js` (middleware order matters — `/api/auth` is mounted *above* the `app.use('/api', requireAuth, ...)` wall), `src/api/server/routes/auth/router.js`, `src/core/auth/`, and how the client sends `CSRF-Token` (see `easyPagesApi.js`). See [SECURITY.md](./SECURITY.md) for the model.
-- **The error `code` contract**: every auth response carries a stable machine-readable `code`; the SPA maps it to an i18n key in `src/web/shared/i18n/authErrors.js`. The Spanish `error` text is for curl and logs. Change the code and you break the UI silently — change both, with tests.
+- **The error `code` contract**: every auth response carries a stable machine-readable `code`; the SPA maps it to an i18n key in `src/web/shared/i18n/authErrors.js`. The English `error` text is for curl and logs. Change the code and you break the UI silently — change both, with tests.
 - **ZIP / Direct Upload**: deployment upload routes and core upload logic; preserve path traversal and Zip Slip protections.
 - **Public internal contracts**: if you change URLs, methods, headers, or payloads in `easyPagesApi.js`, update the server and its tests together.
 

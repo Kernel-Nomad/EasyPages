@@ -64,7 +64,7 @@ const AccountModal = ({ onClose, onSubmit, username }) => {
         role="dialog"
         aria-modal="true"
         aria-labelledby={dialogId}
-        className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl animate-in zoom-in-95 duration-200"
+        className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl"
       >
         <h3 id={dialogId} className="text-lg font-semibold text-gray-900">
           {t('account_title')}

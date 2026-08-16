@@ -1,4 +1,4 @@
-import { Coffee } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 const Footer = () => {
@@ -23,15 +23,14 @@ const Footer = () => {
 
         <div className="flex flex-row flex-wrap justify-center items-center gap-4 md:gap-6 order-1 md:order-2">
           <a
-            href="https://buymeacoffee.com/kn990x"
+            href="https://ko-fi.com/kn990x"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 px-3 py-1 rounded-full text-sm font-bold text-gray-900 transition-all hover:opacity-90 hover:scale-105 active:scale-95 shadow-sm h-[28px] whitespace-nowrap"
-            style={{ backgroundColor: '#FFDD00' }}
+            className="inline-flex items-center gap-2 rounded-md bg-[#FF5E5B] px-3.5 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#e54e4b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5E5B] focus-visible:ring-offset-2"
             title={t('tip_me')}
           >
-            <Coffee className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden="true" />
-            <span style={{ fontFamily: 'inherit' }}>{t('tip_me')}</span>
+            <Heart className="h-3.5 w-3.5 shrink-0 fill-current" aria-hidden="true" />
+            <span>{t('tip_me')}</span>
           </a>
         </div>
       </div>

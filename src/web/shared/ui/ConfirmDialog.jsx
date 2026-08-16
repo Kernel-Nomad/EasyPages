@@ -22,7 +22,7 @@ const ConfirmDialog = ({ confirmation, onCancel, onConfirm }) => {
         aria-modal="true"
         aria-labelledby={dialogId}
         aria-describedby={descriptionId}
-        className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl animate-in zoom-in-95 duration-200"
+        className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl"
       >
         <div className="flex items-start gap-3">
           <div className={`rounded-full p-2 ${confirmation.destructive ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>

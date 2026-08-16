@@ -1,6 +1,5 @@
-import path from 'path';
 import dotenv from 'dotenv';
-import { appRootDir, repoEnvPath } from './paths.js';
+import { defaultDataDir, repoEnvPath } from './paths.js';
 import { trimEnv } from './trimEnv.js';
 
 const dotenvResult = dotenv.config({ path: repoEnvPath });
@@ -8,7 +7,7 @@ if (dotenvResult.error) {
   dotenv.config();
 }
 
-export const PORT = process.env.PORT || 8002;
+export const PORT = trimEnv(process.env.PORT) || 8002;
 export const CF_API_TOKEN = trimEnv(process.env.CF_API_TOKEN);
 
 /** Optional: inferred from the token unless the token reaches more than one account. */
@@ -21,7 +20,7 @@ export const SESSION_SECRET = trimEnv(process.env.SESSION_SECRET);
  * path: without one the credential would not survive a restart.
  */
 export const EASYPAGES_DATA_DIR =
-  trimEnv(process.env.EASYPAGES_DATA_DIR) ?? path.join(appRootDir, 'data');
+  trimEnv(process.env.EASYPAGES_DATA_DIR) ?? defaultDataDir;
 
 /**
  * `Secure` flag on the session cookie. `SESSION_COOKIE_SECURE=true|false` wins; otherwise

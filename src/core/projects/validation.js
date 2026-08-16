@@ -1,10 +1,10 @@
-const PROJECT_NAME_REGEX = /^[a-z0-9-]+$/;
+const PROJECT_NAME_REGEX = /^[a-z0-9]([a-z0-9-]{0,56}[a-z0-9])?$/;
 
 const isPlainObject = (value) =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 
 export const isValidProjectName = (name) =>
-  Boolean(name) && PROJECT_NAME_REGEX.test(name);
+  Boolean(name) && typeof name === 'string' && PROJECT_NAME_REGEX.test(name);
 
 export const validateBuildConfig = (buildConfig) => {
   if (!isPlainObject(buildConfig)) {
@@ -24,24 +24,6 @@ export const validateBuildConfig = (buildConfig) => {
 
   if (hasOutputDir && typeof buildConfig.output_dir !== 'string') {
     return 'The output directory must be a string.';
-  }
-
-  return null;
-};
-
-export const validateEnvPayload = (env) => {
-  if (!isPlainObject(env)) {
-    return 'The environment variable configuration is invalid.';
-  }
-
-  for (const [key, value] of Object.entries(env)) {
-    if (typeof key !== 'string' || key.trim() === '') {
-      return 'Environment keys must be non-empty strings.';
-    }
-
-    if (typeof value !== 'string') {
-      return 'Environment values must be strings.';
-    }
   }
 
   return null;

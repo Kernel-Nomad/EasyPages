@@ -84,12 +84,40 @@ export const sanitizeCloudflareErrorDetails = (raw) => {
   return out.length > 0 ? out : undefined;
 };
 
-const normalizeCloudflareError = (error, fallbackMessage) => {
+/**
+ * Map Cloudflare HTTP statuses onto EasyPages statuses. Never forward 401/403/429: the SPA
+ * treats those as session/CSRF/rate-limit of *this* app, and a stale CF token would kick the
+ * operator to the login screen or swallow the error as a silent SECURITY_ERROR.
+ *
+ * `expose` lets the stable `code` (and a sanitized message) through on a 5xx so the SPA can
+ * translate `cf_*` without treating the response as a bare internal error.
+ */
+const mapCloudflareStatus = (cfStatus) => {
+  if (cfStatus === 401) {
+    return { status: 502, code: 'cf_unauthorized', expose: true };
+  }
+  if (cfStatus === 403) {
+    return { status: 502, code: 'cf_forbidden', expose: true };
+  }
+  if (cfStatus === 429) {
+    return { status: 503, code: 'cf_rate_limited', expose: true };
+  }
+  return { status: cfStatus, code: undefined, expose: false };
+};
+
+export const normalizeCloudflareError = (error, fallbackMessage) => {
   if (error.response) {
+    const mapped = mapCloudflareStatus(error.response.status);
     const normalizedError = new Error(
       extractCloudflareMessage(error.response.data) || fallbackMessage,
     );
-    normalizedError.status = error.response.status;
+    normalizedError.status = mapped.status;
+    if (mapped.code) {
+      normalizedError.code = mapped.code;
+    }
+    if (mapped.expose) {
+      normalizedError.expose = true;
+    }
     const rawDetails = error.response.data?.errors ?? error.response.data?.messages;
     normalizedError.details = sanitizeCloudflareErrorDetails(rawDetails);
     return normalizedError;
@@ -104,6 +132,37 @@ const normalizeCloudflareError = (error, fallbackMessage) => {
   }
 
   return error;
+};
+
+/**
+ * Walk Cloudflare list endpoints that use page/per_page until a page returns fewer than
+ * perPage items (or an empty result). Defends against a missing/non-array `result`.
+ *
+ * @param {{ get: (path: string) => Promise<{ data?: { result?: unknown } }> }} cloudflare
+ * @param {string} resourcePath Path under the account, without query string.
+ * @param {{ perPage?: number }} [options]
+ * @returns {Promise<unknown[]>}
+ */
+export const listAllPages = async (cloudflare, resourcePath, { perPage = 100 } = {}) => {
+  const separator = resourcePath.includes('?') ? '&' : '?';
+  const all = [];
+  let page = 1;
+
+  for (;;) {
+    const response = await cloudflare.get(
+      `${resourcePath}${separator}per_page=${perPage}&page=${page}`,
+    );
+    const result = response?.data?.result;
+    const batch = Array.isArray(result) ? result : [];
+    all.push(...batch);
+
+    if (batch.length < perPage) {
+      break;
+    }
+    page += 1;
+  }
+
+  return all;
 };
 
 /** `expose` lets the error handler forward message and code on a 5xx, where both are
@@ -189,16 +248,28 @@ export const createCloudflareClient = ({ apiToken, accountId }) => {
   const resolveAccountId = createAccountIdResolver({
     explicitAccountId: accountId,
     listAccounts: async () => {
-      const response = await client
-        .get('/accounts', mergeHeaders(defaultHeaders))
-        .catch((error) => {
-          throw normalizeCloudflareError(
-            error,
-            'Could not look up the Cloudflare account for this token',
-          );
-        });
-      const result = response?.data?.result;
-      return Array.isArray(result) ? result : [];
+      // /accounts is not under /accounts/:id, so call axios directly and paginate.
+      const all = [];
+      let page = 1;
+      const perPage = 50;
+      for (;;) {
+        const response = await client
+          .get(`/accounts?per_page=${perPage}&page=${page}`, mergeHeaders(defaultHeaders))
+          .catch((error) => {
+            throw normalizeCloudflareError(
+              error,
+              'Could not look up the Cloudflare account for this token',
+            );
+          });
+        const result = response?.data?.result;
+        const batch = Array.isArray(result) ? result : [];
+        all.push(...batch);
+        if (batch.length < perPage) {
+          break;
+        }
+        page += 1;
+      }
+      return all;
     },
   });
 

@@ -5,6 +5,7 @@ import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
 
 const CreateProjectModal = ({
   creating,
+  createError,
   newProjectName,
   onClose,
   onNameChange,
@@ -13,6 +14,7 @@ const CreateProjectModal = ({
   const { t } = useTranslation();
   const dialogId = useId();
   const nameId = useId();
+  const errorId = useId();
   // The trap focuses `initialFocusRef` on open, replacing `autoFocus`.
   const { dialogRef, initialFocusRef } = useFocusTrap({ open: true, onClose });
 
@@ -23,7 +25,8 @@ const CreateProjectModal = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby={dialogId}
-        className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 animate-in zoom-in-95 duration-200"
+        aria-describedby={createError ? errorId : undefined}
+        className="bg-white rounded-xl shadow-xl max-w-md w-full p-6"
       >
         <h3 id={dialogId} className="text-lg font-bold text-gray-900 mb-4">{t('new_project_title')}</h3>
         <form onSubmit={onSubmit}>
@@ -41,14 +44,23 @@ const CreateProjectModal = ({
                 onChange={(event) => onNameChange(event.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:outline-none"
                 required
+                spellCheck={false}
+                autoComplete="off"
+                disabled={creating}
               />
               <p className="text-xs text-gray-500 mt-1">{t('project_create_hint')}</p>
             </div>
+            {createError && (
+              <p id={errorId} role="alert" className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                {createError}
+              </p>
+            )}
             <div className="flex gap-3 justify-end pt-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium"
+                disabled={creating}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium disabled:opacity-50"
               >
                 {t('cancel')}
               </button>

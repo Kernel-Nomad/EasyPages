@@ -12,7 +12,7 @@ import {
   SESSION_SECRET,
   TRUST_PROXY,
 } from '../../config/env.js';
-import { distDir, uploadsDir, uploadsMulterDest } from '../../config/paths.js';
+import { distDir, resolveUploadsDir } from '../../config/paths.js';
 import { createAuthState } from '../../core/auth/authState.js';
 import { createCredentialStore } from '../../core/auth/credentialStore.js';
 import { createAuthService } from '../../core/auth/service.js';
@@ -20,12 +20,7 @@ import { createRequireAuth } from './middleware/auth.js';
 import { createSessionCsrfProtection } from './middleware/csrf.js';
 import { createErrorHandler } from './middleware/errorHandler.js';
 import { createLoginRateLimiters } from './middleware/loginRateLimit.js';
-import {
-  createProjectLimiter,
-  spaLimiter,
-  staticLimiter,
-  uploadLimiter,
-} from './middleware/rateLimiters.js';
+import { createRateLimiters } from './middleware/rateLimiters.js';
 import { createAuthRouter, createLegacyAuthRouter } from './routes/auth/router.js';
 import { createDeploymentsRouter } from './routes/deployments/router.js';
 import { createDomainsRouter } from './routes/domains.js';
@@ -53,6 +48,8 @@ export const createApp = (options = {}) => {
 
   const { cloudflare: cloudflareOverride } = options;
 
+  const uploadsDir = resolveUploadsDir(EASYPAGES_DATA_DIR);
+  ensureDirectory(EASYPAGES_DATA_DIR);
   ensureDirectory(uploadsDir);
 
   const credentialStore = createCredentialStore({ dataDir: EASYPAGES_DATA_DIR });
@@ -71,12 +68,18 @@ export const createApp = (options = {}) => {
 
   const authService = createAuthService({ authState, store: credentialStore });
   const { loginRateLimit, resetLoginFailures } = createLoginRateLimiters();
+  const {
+    staticLimiter,
+    spaLimiter,
+    uploadLimiter,
+    createProjectLimiter,
+  } = createRateLimiters();
 
   const finalSessionSecret = resolveCookieSessionSecret({
     sessionSecretFromEnv: SESSION_SECRET,
     dataDir: EASYPAGES_DATA_DIR,
   });
-  const upload = createUploadMiddleware({ destination: uploadsMulterDest });
+  const upload = createUploadMiddleware({ destination: uploadsDir });
   const requireAuth = createRequireAuth({ authState });
   const csrfProtection = createSessionCsrfProtection();
   const cloudflare = cloudflareOverride
@@ -95,8 +98,8 @@ export const createApp = (options = {}) => {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
         styleSrc: ["'self'"],
-        imgSrc: ["'self'", 'data:', 'https:'],
-        connectSrc: ["'self'", 'https://api.cloudflare.com'],
+        imgSrc: ["'self'", 'data:'],
+        connectSrc: ["'self'"],
         upgradeInsecureRequests: null,
       },
     },
@@ -114,7 +117,6 @@ export const createApp = (options = {}) => {
   app.use('/api/auth', express.json({ limit: '4kb' }));
 
   app.use(express.json({ limit: '512kb' }));
-  app.use(express.urlencoded({ extended: true, limit: '512kb' }));
 
   app.use(cookieSession({
     name: 'easypages_sid',

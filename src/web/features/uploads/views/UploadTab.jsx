@@ -3,12 +3,17 @@ import { Loader2, UploadCloud } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { easyPagesClient } from '../../../../api/client/easyPagesApi.js';
 import { isSecurityError } from '../../../app/hooks/useAuthSession.js';
+import { dashboardErrorMessage } from '../../../shared/i18n/dashboardErrors.js';
+
+/** Must stay aligned with MAX_UPLOAD_ARCHIVE_BYTES on the server. */
+const MAX_CLIENT_ZIP_BYTES = 100 * 1024 * 1024;
 
 const UploadTab = ({ project, csrfToken, onNotify, onUploadSuccess }) => {
   const { t } = useTranslation();
   const inputRef = useRef(null);
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [dragging, setDragging] = useState(false);
 
   const acceptZip = (next) => {
     if (!next) {
@@ -19,6 +24,11 @@ const UploadTab = ({ project, csrfToken, onNotify, onUploadSuccess }) => {
     const name = next.name || '';
     if (!name.toLowerCase().endsWith('.zip')) {
       onNotify('error', t('upload_zip_only'));
+      return;
+    }
+
+    if (typeof next.size === 'number' && next.size > MAX_CLIENT_ZIP_BYTES) {
+      onNotify('error', t('upload_too_large'));
       return;
     }
 
@@ -33,6 +43,7 @@ const UploadTab = ({ project, csrfToken, onNotify, onUploadSuccess }) => {
 
   const handleDrop = (event) => {
     event.preventDefault();
+    setDragging(false);
     const next = event.dataTransfer.files?.[0];
     acceptZip(next);
   };
@@ -61,7 +72,7 @@ const UploadTab = ({ project, csrfToken, onNotify, onUploadSuccess }) => {
       onUploadSuccess();
     } catch (error) {
       if (!isSecurityError(error)) {
-        onNotify('error', error.message || t('upload_error_msg'));
+        onNotify('error', dashboardErrorMessage(error, 'upload_error_msg', t));
       }
     } finally {
       setUploading(false);
@@ -73,16 +84,18 @@ const UploadTab = ({ project, csrfToken, onNotify, onUploadSuccess }) => {
       <section className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
         <div className="p-4 border-b border-gray-200 bg-gray-50">
           <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-            <UploadCloud size={18} />
+            <UploadCloud size={18} aria-hidden="true" />
             {t('upload_title')}
           </h3>
         </div>
         <div className="p-6 space-y-6">
           <input
             ref={inputRef}
+            id="upload-zip-input"
             type="file"
             accept=".zip,application/zip"
             className="hidden"
+            aria-label={t('upload_title')}
             onChange={handleFileChange}
           />
           <button
@@ -90,9 +103,18 @@ const UploadTab = ({ project, csrfToken, onNotify, onUploadSuccess }) => {
             onClick={() => inputRef.current?.click()}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
-            className="w-full border-2 border-dashed border-gray-300 rounded-lg py-12 px-4 text-center text-sm text-gray-600 hover:border-orange-400 hover:bg-orange-50/40 transition-colors"
+            onDragEnter={(event) => {
+              event.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            className={`w-full border-2 border-dashed rounded-lg py-12 px-4 text-center text-sm text-gray-600 transition-colors ${
+              dragging
+                ? 'border-orange-400 bg-orange-50/60'
+                : 'border-gray-300 hover:border-orange-400 hover:bg-orange-50/40'
+            }`}
           >
-            <UploadCloud className="mx-auto mb-3 text-gray-400" size={36} />
+            <UploadCloud className="mx-auto mb-3 text-gray-400" size={36} aria-hidden="true" />
             <p className="font-medium text-gray-800">{t('drop_hint')}</p>
             <p className="mt-1 text-xs text-gray-500">{t('drop_subhint')}</p>
             {file && (

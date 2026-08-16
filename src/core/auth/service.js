@@ -107,6 +107,7 @@ export const createAuthService = ({ store, authState }) => {
   return {
     changeCredentials,
     createInitialCredentials,
+    getAuthSnapshot: () => authState.getSnapshot(),
     getCredentials,
     isSetupComplete,
     verifyCredentials,

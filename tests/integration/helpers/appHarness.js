@@ -180,7 +180,8 @@ export const createClient = (baseUrl, existingJar) => {
 
 export const createMockCloudflare = (overrides = {}) => ({
   get: async (resourcePath) => {
-    if (resourcePath === '/pages/projects') {
+    const pathOnly = resourcePath.split('?')[0];
+    if (pathOnly === '/pages/projects') {
       return {
         data: {
           result: [{
@@ -194,22 +195,44 @@ export const createMockCloudflare = (overrides = {}) => ({
         },
       };
     }
-    if (resourcePath === '/pages/projects/demo/domains') {
+    if (pathOnly === '/pages/projects/demo/domains') {
       return { data: { result: [{ id: 'dom-existing', name: 'existing.example.com' }] } };
+    }
+    if (pathOnly === '/pages/projects/demo') {
+      return {
+        data: {
+          result: {
+            id: 'proj-1',
+            name: 'demo',
+            build_config: { build_command: 'npm run build', destination_dir: 'dist' },
+            production_branch: 'main',
+            canonical_deployment: { id: 'dep-prod' },
+          },
+        },
+      };
     }
     throw new Error(`unexpected GET ${resourcePath}`);
   },
   post: async (resourcePath, data) => {
-    if (resourcePath === '/pages/projects/demo/domains') {
+    const pathOnly = resourcePath.split('?')[0];
+    if (pathOnly === '/pages/projects/demo/domains') {
       return { data: { result: { id: 'dom-new', name: data.name } } };
+    }
+    if (pathOnly === '/pages/projects') {
+      return { data: { result: { id: 'proj-new', name: data.name } } };
     }
     throw new Error(`unexpected POST ${resourcePath}`);
   },
-  patch: async () => {
-    throw new Error('unexpected patch');
+  patch: async (resourcePath) => {
+    const pathOnly = resourcePath.split('?')[0];
+    if (pathOnly === '/pages/projects/demo') {
+      return { data: { result: { id: 'proj-1', name: 'demo' } } };
+    }
+    throw new Error(`unexpected patch ${resourcePath}`);
   },
   delete: async (resourcePath) => {
-    if (resourcePath === '/pages/projects/demo/domains/example.com') {
+    const pathOnly = resourcePath.split('?')[0];
+    if (pathOnly === '/pages/projects/demo/domains/example.com') {
       return { data: { success: true } };
     }
     throw new Error(`unexpected DELETE ${resourcePath}`);

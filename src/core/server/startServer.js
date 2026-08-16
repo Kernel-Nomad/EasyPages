@@ -26,5 +26,19 @@ export const startServer = ({ port = PORT } = {}) => {
     process.exit(1);
   });
 
+  const shutdown = (signal) => {
+    console.log(`[EasyPages] ${signal} received, closing…`);
+    server.close((closeError) => {
+      if (closeError) {
+        console.error('[EasyPages] Error while closing:', closeError.message);
+        process.exit(1);
+      }
+      process.exit(0);
+    });
+  };
+
+  process.once('SIGTERM', () => shutdown('SIGTERM'));
+  process.once('SIGINT', () => shutdown('SIGINT'));
+
   return server;
 };

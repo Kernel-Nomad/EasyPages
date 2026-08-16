@@ -58,11 +58,16 @@ const ProjectDetailView = ({
     }
     const delta = event.key === 'ArrowRight' ? 1 : -1;
     const nextIndex = (currentIndex + delta + tabs.length) % tabs.length;
-    setActiveTab(tabs[nextIndex].id);
+    const nextId = tabs[nextIndex].id;
+    setActiveTab(nextId);
+    // Move focus with the selection (WAI-ARIA tabs pattern).
+    requestAnimationFrame(() => {
+      document.getElementById(`project-tab-${nextId}`)?.focus();
+    });
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+    <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-4">
           <button
@@ -72,7 +77,7 @@ const ProjectDetailView = ({
             title={t('back_to_list')}
             aria-label={t('back_to_list')}
           >
-            <ArrowLeft size={20} />
+            <ArrowLeft size={20} aria-hidden="true" />
           </button>
           <div>
             <div className="flex items-center gap-3">
@@ -82,12 +87,13 @@ const ProjectDetailView = ({
                 target="_blank"
                 rel="noreferrer"
                 className="text-xs text-orange-600 hover:text-orange-800 bg-orange-50 px-2 py-0.5 rounded flex items-center gap-1"
+                aria-label={`${t('visit_site')} ${selectedProject.subdomain}`}
               >
-                {selectedProject.subdomain} <ExternalLink size={10} />
+                {selectedProject.subdomain} <ExternalLink size={10} aria-hidden="true" />
               </a>
             </div>
             <p className="text-sm text-gray-500 flex items-center gap-2 mt-1">
-              {selectedProject.source?.type === 'github' && <GitBranch size={14} />}
+              {selectedProject.source?.type === 'github' && <GitBranch size={14} aria-hidden="true" />}
               {selectedProject.source?.repo || t('direct_upload')}
             </p>
           </div>
@@ -96,11 +102,12 @@ const ProjectDetailView = ({
         {selectedProject.source?.type === 'github' && (
           <div className="flex gap-2 items-center">
             <button
+              type="button"
               onClick={onTriggerDeploy}
               disabled={isDeploying}
-              className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed group relative"
+              className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              {isDeploying ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} className="fill-current" />}
+              {isDeploying ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} className="fill-current" aria-hidden="true" />}
               <span>
                 {isDeploying ? t('deploying_btn') : t('deploy_prod_btn')}
               </span>
@@ -110,7 +117,7 @@ const ProjectDetailView = ({
       </div>
 
       <div className="border-b border-gray-200">
-        <div className="-mb-px flex gap-6 overflow-x-auto" role="tablist" aria-label={selectedProject.name}>
+        <div className="-mb-px flex gap-6 overflow-x-auto" role="tablist" aria-label={t('tab_deployments')}>
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -124,7 +131,7 @@ const ProjectDetailView = ({
               onKeyDown={handleTabKeyDown}
               className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === tab.id ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
             >
-              <tab.icon size={16} />
+              <tab.icon size={16} aria-hidden="true" />
               {tab.label}
             </button>
           ))}

@@ -14,5 +14,8 @@ export const distDir = path.join(appRootDir, 'dist');
  */
 export const defaultDataDir = path.join(appRootDir, 'data');
 
-export const uploadsDir = path.join(appRootDir, 'uploads');
-export const uploadsMulterDest = uploadsDir;
+/**
+ * Uploads live under the data directory so Docker volume mounts keep them (and so leftover
+ * ZIPs do not fill the container writable layer when only `/data` is mounted).
+ */
+export const resolveUploadsDir = (dataDir = defaultDataDir) => path.join(dataDir, 'uploads');

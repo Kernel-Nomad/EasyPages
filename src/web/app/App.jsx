@@ -38,6 +38,8 @@ export default function App() {
 
   const {
     activeTab,
+    closeCreateModal,
+    createError,
     creating,
     deployments,
     deploymentsHasMore,
@@ -53,12 +55,13 @@ export default function App() {
     loading,
     loadingDeployments,
     newProjectName,
+    openCreateModal,
     productionDeploymentId,
     projects,
+    projectsLoadError,
     selectedProject,
     setActiveTab,
     setNewProjectName,
-    setShowCreateModal,
     showCreateModal,
     view,
   } = useDashboardState({
@@ -70,23 +73,20 @@ export default function App() {
 
   // Gated on `ready`: unconditional, these calls fired on a fresh install and 401'd before
   // the wizard had been drawn. `loadProjects`/`t` are deliberately omitted: loadProjects is
-  // recreated every render and would refetch in a loop.
+  // recreated every render and would refetch in a loop. loadProjects already catches errors.
   useEffect(() => {
     if (authState !== 'ready') {
       return;
     }
-    loadProjects().catch((error) => {
-      if (!isSecurityError(error)) {
-        console.error('Error initialising the application', error);
-        showNotification('error', error.message || t('project_list_error'));
-      }
-    });
+    loadProjects();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: see comment above
   }, [authState]);
 
+  const resolvedLanguage = (i18n.resolvedLanguage || i18n.language || 'en').split('-')[0];
+
   useEffect(() => {
-    document.documentElement.lang = i18n.language?.split('-')[0] ?? 'en';
-  }, [i18n.language]);
+    document.documentElement.lang = resolvedLanguage;
+  }, [resolvedLanguage]);
 
   useEffect(() => {
     if (notification) {
@@ -109,7 +109,7 @@ export default function App() {
   };
 
   const toggleLanguage = () => {
-    i18n.changeLanguage(i18n.language === 'es' ? 'en' : 'es');
+    i18n.changeLanguage(resolvedLanguage === 'es' ? 'en' : 'es');
   };
 
   const handleLogout = async () => {
@@ -161,7 +161,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 flex flex-col">
       <AppHeader
-        language={i18n.language}
+        language={resolvedLanguage}
         onToggleLanguage={toggleLanguage}
         onLogout={handleLogout}
         onOpenAccount={() => setShowAccountModal(true)}
@@ -174,8 +174,9 @@ export default function App() {
         {view === 'list' && (
           <ProjectListView
             loading={loading}
+            loadError={projectsLoadError}
             projects={projects}
-            onCreateClick={() => setShowCreateModal(true)}
+            onCreateClick={openCreateModal}
             onRefresh={loadProjects}
             onProjectClick={handleProjectSelection}
           />
@@ -216,8 +217,9 @@ export default function App() {
       {showCreateModal && (
         <CreateProjectModal
           creating={creating}
+          createError={createError}
           newProjectName={newProjectName}
-          onClose={() => setShowCreateModal(false)}
+          onClose={closeCreateModal}
           onNameChange={setNewProjectName}
           onSubmit={handleCreateProject}
         />

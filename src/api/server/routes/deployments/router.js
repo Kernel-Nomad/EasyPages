@@ -2,7 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import { createDeploymentsService } from '../../../../core/deployments/service.js';
-import { createHttpError, sendErrorResponse } from '../../http.js';
+import { createHttpError, sendErrorResponse, sendValidationError } from '../../http.js';
 import {
   isPathInsideDirectory,
   safeUnlink,
@@ -18,9 +18,6 @@ import {
   validateDeploymentDeleteRequest,
   validateProjectNameParam,
 } from './validation.js';
-
-const sendValidationError = (res, message) =>
-  res.status(400).json({ error: message, code: 'validation_error' });
 
 const cleanupUploadFile = (file, uploadsDir) => {
   if (file) {
@@ -51,7 +48,9 @@ export const createDeploymentsRouter = ({
       if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
         sendErrorResponse(
           res,
-          createHttpError(413, 'The ZIP file exceeds the maximum allowed size.'),
+          createHttpError(413, 'The ZIP file exceeds the maximum allowed size.', {
+            code: 'payload_too_large',
+          }),
           'Failed to process the uploaded file',
           req,
         );
@@ -133,7 +132,7 @@ export const createDeploymentsRouter = ({
       if (!isPathInsideDirectory(normalizedUploadPath, uploadsDir)) {
         console.error('SECURITY: path traversal attempt in upload:', req.file.path);
         cleanupUploadFile(req.file, uploadsDir);
-        return res.status(403).json({ error: 'Invalid file path.' });
+        return sendValidationError(res, 'Invalid file path.');
       }
     }
 
@@ -144,7 +143,7 @@ export const createDeploymentsRouter = ({
     }
 
     if (!req.file) {
-      return res.status(400).json({ error: 'No file was uploaded' });
+      return sendValidationError(res, 'No file was uploaded');
     }
 
     try {

@@ -1,7 +1,6 @@
 import {
   isValidProjectName,
   validateBuildConfig,
-  validateEnvPayload,
 } from '../../../../core/projects/validation.js';
 
 export const validateCreateProjectRequest = (body) =>
@@ -9,9 +8,6 @@ export const validateCreateProjectRequest = (body) =>
 
 export const validateProjectBuildConfigRequest = (body) =>
   validateBuildConfig(body?.build_config);
-
-export const validateProjectEnvRequest = (body) =>
-  validateEnvPayload(body?.env);
 
 export const validateProjectNameParam = (projectName) =>
   !isValidProjectName(projectName) ? 'Invalid project name' : null;

@@ -77,7 +77,34 @@ export const createAuthRouter = ({
   router.get('/status', csrfProtection, (req, res) => {
     res.set('Cache-Control', 'no-store');
 
-    const record = authService.getCredentials();
+    let record;
+    try {
+      record = authService.getCredentials();
+    } catch (error) {
+      // Align with authState: a transient I/O failure must not crash the bootstrap or
+      // reopen the wizard. Prefer the in-process snapshot when the store is unreadable.
+      logServerError(req, error, 'auth status store');
+      const snapshot = authService.getAuthSnapshot?.() ?? null;
+      if (snapshot?.configured) {
+        const authenticated = Boolean(
+          req.session?.user === snapshot.username
+          && req.session?.v === snapshot.tokenVersion,
+        );
+        return res.json({
+          setup_complete: true,
+          authenticated,
+          username: authenticated ? snapshot.username : null,
+          csrf_token: req.csrfToken(),
+        });
+      }
+      return sendError(
+        res,
+        500,
+        'Could not read the credentials. Check the server logs.',
+        'storage_unwritable',
+      );
+    }
+
     const authenticated = Boolean(
       record
       && req.session?.user === record.username

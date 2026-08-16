@@ -5,13 +5,12 @@ import { initReactI18next } from 'react-i18next';
 const resources = {
   es: {
     translation: {
-      loading: 'Cargando...',
+      loading: 'Cargando…',
       save: 'Guardar',
       cancel: 'Cancelar',
       confirm: 'Confirmar',
       delete: 'Eliminar',
       add: 'Agregar',
-      actions: 'Acciones',
       unknown: 'Desconocido',
 
       logout: 'Salir',
@@ -20,7 +19,6 @@ const resources = {
       status_success: 'Exitoso',
       status_failure: 'Fallido',
       status_pending: 'Pendiente',
-      status_active: 'Activo',
 
       create_project_btn: 'Crear nuevo proyecto',
       refresh_list: 'Refrescar lista',
@@ -52,10 +50,7 @@ const resources = {
       unknown_repo: 'Repo desconocido',
       direct_upload: 'Direct Upload',
 
-      history_title: 'Historial de Despliegues',
-      results_count: 'resultados',
       manual_deploy: 'Despliegue manual',
-      no_history: 'No hay historial de despliegues disponible.',
       loading_history: 'Cargando historial...',
       view_deploy: 'Ver este despliegue',
       no_deployments: 'No hay despliegues disponibles.',
@@ -66,7 +61,7 @@ const resources = {
       delete_all_non_prod: 'Eliminar todo excepto producción',
       confirm_delete_selected: '¿Estás seguro de que quieres eliminar {{count}} despliegues?',
       confirm_delete_selected_title: 'Eliminar despliegues seleccionados',
-      confirm_delete_all: '⚠️ ACCIÓN CRÍTICA\n\nEsto eliminará TODOS los despliegues anteriores excepto el que está actualmente en producción.\nEsta acción no se puede deshacer.\n\n¿Estás completamente seguro?',
+      confirm_delete_all: 'CRITICAL ACTION\n\nEsto eliminará TODOS los despliegues anteriores excepto el que está actualmente en producción.\nEsta acción no se puede deshacer.\n\n¿Estás completamente seguro?',
       confirm_delete_all_title: 'Eliminar historial de despliegues',
       confirm_delete_truncated_title: 'Lista incompleta',
       confirm_delete_truncated: 'No se pudo cargar la lista completa de despliegues. ¿Continuar con los que sí se listaron?',
@@ -86,6 +81,13 @@ const resources = {
       rate_limited: 'Demasiadas peticiones. Inténtalo de nuevo más tarde.',
       validation_error: 'Revisa los datos introducidos.',
       invalid_domain: 'Nombre de dominio no válido.',
+      payload_too_large: 'El archivo es demasiado grande.',
+      cf_unauthorized: 'El token de Cloudflare no es válido o ha caducado. Revisa CF_API_TOKEN.',
+      cf_forbidden: 'El token de Cloudflare no tiene permiso para esta operación.',
+      cf_rate_limited: 'Cloudflare está limitando las peticiones. Inténtalo de nuevo en unos segundos.',
+      csrf_invalid: 'La sesión del formulario ha caducado. Inténtalo de nuevo.',
+      empty_projects_error: 'No se pudieron cargar los proyectos.',
+      upload_too_large: 'El ZIP supera el tamaño máximo permitido (100 MB).',
 
       build_config_title: 'Configuración de Build',
       build_command_label: 'Comando de Build',
@@ -109,7 +111,7 @@ const resources = {
       error_delete_domain: 'Error al eliminar',
 
       upload_title: 'Subir Archivos (Direct Upload)',
-      drop_hint: 'Haz clic para seleccionar un archivo .ZIP',
+      drop_hint: 'Arrastra un .ZIP aquí o haz clic para seleccionarlo',
       drop_subhint: 'Solo archivos .zip',
       upload_btn: 'Desplegar',
       upload_success_msg: '¡Despliegue completado con éxito!',
@@ -158,18 +160,17 @@ const resources = {
       account_error_current_password: 'La contraseña actual no es correcta.',
       account_nothing_to_change: 'No has cambiado nada.',
 
-      tip_me: 'Invítame un café',
+      tip_me: 'Apóyame en Ko-fi',
     },
   },
   en: {
     translation: {
-      loading: 'Loading...',
+      loading: 'Loading…',
       save: 'Save',
       cancel: 'Cancel',
       confirm: 'Confirm',
       delete: 'Delete',
       add: 'Add',
-      actions: 'Actions',
       unknown: 'Unknown',
 
       logout: 'Logout',
@@ -178,7 +179,6 @@ const resources = {
       status_success: 'Success',
       status_failure: 'Failed',
       status_pending: 'Pending',
-      status_active: 'Active',
 
       create_project_btn: 'Create New Project',
       refresh_list: 'Refresh List',
@@ -210,10 +210,7 @@ const resources = {
       unknown_repo: 'Unknown repo',
       direct_upload: 'Direct Upload',
 
-      history_title: 'Deployment History',
-      results_count: 'results',
       manual_deploy: 'Manual deployment',
-      no_history: 'No deployment history available.',
       loading_history: 'Loading history...',
       view_deploy: 'View this deployment',
       no_deployments: 'No deployments available.',
@@ -224,7 +221,7 @@ const resources = {
       delete_all_non_prod: 'Delete all except production',
       confirm_delete_selected: 'Are you sure you want to delete {{count}} deployments?',
       confirm_delete_selected_title: 'Delete selected deployments',
-      confirm_delete_all: '⚠️ CRITICAL ACTION\n\nThis will delete ALL previous deployments except the one currently in production.\nThis action cannot be undone.\n\nAre you completely sure?',
+      confirm_delete_all: 'CRITICAL ACTION\n\nThis will delete ALL previous deployments except the one currently in production.\nThis action cannot be undone.\n\nAre you completely sure?',
       confirm_delete_all_title: 'Delete deployment history',
       confirm_delete_truncated_title: 'Incomplete list',
       confirm_delete_truncated: 'Could not load the full deployment list. Continue with the ones already listed?',
@@ -244,6 +241,13 @@ const resources = {
       rate_limited: 'Too many requests. Try again later.',
       validation_error: 'Check the details you entered.',
       invalid_domain: 'Invalid domain name.',
+      payload_too_large: 'The file is too large.',
+      cf_unauthorized: 'The Cloudflare token is invalid or expired. Check CF_API_TOKEN.',
+      cf_forbidden: 'The Cloudflare token does not have permission for this operation.',
+      cf_rate_limited: 'Cloudflare is rate-limiting requests. Try again in a few seconds.',
+      csrf_invalid: 'The form session expired. Please try again.',
+      empty_projects_error: 'Could not load projects.',
+      upload_too_large: 'The ZIP exceeds the maximum allowed size (100 MB).',
 
       build_config_title: 'Build Configuration',
       build_command_label: 'Build Command',
@@ -267,7 +271,7 @@ const resources = {
       error_delete_domain: 'Error deleting domain',
 
       upload_title: 'Upload Files (Direct Upload)',
-      drop_hint: 'Click to select a .ZIP file',
+      drop_hint: 'Drag a .ZIP here or click to select one',
       drop_subhint: 'Only .zip files',
       upload_btn: 'Deploy',
       upload_success_msg: 'Deployment completed successfully!',
@@ -316,7 +320,7 @@ const resources = {
       account_error_current_password: 'The current password is not correct.',
       account_nothing_to_change: 'Nothing was changed.',
 
-      tip_me: 'Buy me a coffee',
+      tip_me: 'Support me on Ko-fi',
     },
   },
 };
@@ -327,6 +331,8 @@ i18n
   .init({
     resources,
     fallbackLng: 'en',
+    supportedLngs: ['en', 'es'],
+    nonExplicitSupportedLngs: true,
     interpolation: {
       escapeValue: false,
     },

@@ -105,5 +105,7 @@ test('POST upload without a file is rejected with 400', async () => {
   });
 
   assert.equal(response.status, 400);
-  assert.equal((await response.json()).error, 'No file was uploaded');
+  const payload = await response.json();
+  assert.equal(payload.error, 'No file was uploaded');
+  assert.equal(payload.code, 'validation_error');
 });

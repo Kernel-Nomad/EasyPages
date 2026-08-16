@@ -22,7 +22,7 @@ const files = [];
 collectTestFiles(testsRoot, files);
 
 if (files.length === 0) {
-  console.warn('No hay archivos *.test.js en tests/');
+  console.warn('No *.test.js files under tests/');
   process.exit(0);
 }
 

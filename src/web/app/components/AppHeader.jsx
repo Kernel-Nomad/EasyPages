@@ -19,23 +19,36 @@ const AppHeader = ({ language, onLogout, onOpenAccount, onToggleLanguage, userna
 
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={onToggleLanguage}
             className={ACTION_CLASS}
             title={t('toggle_language')}
             aria-label={t('toggle_language')}
           >
-            <Languages size={18} />
+            <Languages size={18} aria-hidden="true" />
             <span className="font-medium uppercase">{language}</span>
           </button>
 
-          <button onClick={onOpenAccount} className={ACTION_CLASS} title={t('account_title')}>
-            <UserCog size={18} />
-            <span className="hidden sm:block font-medium">{username || t('account_open')}</span>
+          <button
+            type="button"
+            onClick={onOpenAccount}
+            className={ACTION_CLASS}
+            title={t('account_title')}
+            aria-label={username ? `${t('account_title')}: ${username}` : t('account_title')}
+          >
+            <UserCog size={18} aria-hidden="true" />
+            <span className="hidden sm:inline font-medium">{username || t('account_open')}</span>
           </button>
 
-          <button onClick={onLogout} className={ACTION_CLASS} title={t('logout')}>
+          <button
+            type="button"
+            onClick={onLogout}
+            className={ACTION_CLASS}
+            title={t('logout')}
+            aria-label={t('logout')}
+          >
             <span className="hidden sm:block font-medium">{t('logout')}</span>
-            <LogOut size={18} />
+            <LogOut size={18} aria-hidden="true" />
           </button>
         </div>
       </div>

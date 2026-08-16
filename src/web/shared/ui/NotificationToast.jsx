@@ -32,15 +32,16 @@ const NotificationToast = ({ notification, onDismiss }) => {
   }
 
   const style = stylesByType[notification.type] || stylesByType.info;
+  const role = notification.type === 'error' || notification.type === 'warning' ? 'alert' : 'status';
 
   return (
     <div
-      role="alert"
-      className={`fixed top-20 right-4 z-50 max-w-sm rounded-lg border p-4 shadow-lg animate-in slide-in-from-right duration-300 ${style.container}`}
+      role={role}
+      className={`fixed top-20 right-4 z-[60] max-w-sm rounded-lg border p-4 shadow-lg ${style.container}`}
     >
       <div className="flex items-start gap-3">
         <div className={`rounded-full p-1 ${style.icon}`}>
-          <style.Icon size={16} />
+          <style.Icon size={16} aria-hidden="true" />
         </div>
         <p className="flex-1 text-sm font-medium">{notification.message}</p>
         <button
@@ -49,7 +50,7 @@ const NotificationToast = ({ notification, onDismiss }) => {
           className="rounded-full p-1 text-current/70 transition-colors hover:bg-black/5 hover:text-current"
           aria-label={t('dismiss_notification')}
         >
-          <X size={14} />
+          <X size={14} aria-hidden="true" />
         </button>
       </div>
     </div>
