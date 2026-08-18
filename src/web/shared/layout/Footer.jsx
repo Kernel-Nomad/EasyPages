@@ -1,8 +1,19 @@
+import { useState } from 'react';
 import { Heart } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import SupportModal from '../ui/SupportModal';
 
 const Footer = () => {
   const { t } = useTranslation();
+  const [supportOpen, setSupportOpen] = useState(false);
+  // Separate from `supportOpen` on purpose: the modal is only mounted after the first click,
+  // so a visitor who never asks for it never sends a request to ko-fi.com.
+  const [supportMounted, setSupportMounted] = useState(false);
+
+  const openSupport = () => {
+    setSupportMounted(true);
+    setSupportOpen(true);
+  };
 
   return (
     <footer className="bg-white border-t border-gray-200 mt-auto">
@@ -22,18 +33,21 @@ const Footer = () => {
         </div>
 
         <div className="flex flex-row flex-wrap justify-center items-center gap-4 md:gap-6 order-1 md:order-2">
-          <a
-            href="https://ko-fi.com/kn990x"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-md bg-[#FF5E5B] px-3.5 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#e54e4b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5E5B] focus-visible:ring-offset-2"
-            title={t('tip_me')}
+          <button
+            type="button"
+            onClick={openSupport}
+            aria-haspopup="dialog"
+            className="inline-flex items-center gap-2 rounded-md border border-orange-200 bg-orange-50 px-3.5 py-1.5 text-sm font-semibold text-orange-700 shadow-sm transition-colors hover:bg-orange-100 hover:text-orange-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
           >
             <Heart className="h-3.5 w-3.5 shrink-0 fill-current" aria-hidden="true" />
-            <span>{t('tip_me')}</span>
-          </a>
+            <span>{t('support_title')}</span>
+          </button>
         </div>
       </div>
+
+      {supportMounted && (
+        <SupportModal open={supportOpen} onClose={() => setSupportOpen(false)} />
+      )}
     </footer>
   );
 };

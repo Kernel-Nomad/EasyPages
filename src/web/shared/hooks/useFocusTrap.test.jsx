@@ -52,6 +52,32 @@ describe('useFocusTrap', () => {
     expect(screen.getByLabelText('first')).toHaveFocus();
   });
 
+  it('lets Tab reach an iframe inside the dialog', () => {
+    // The Ko-fi support dialog is an iframe plus a close button. Without `iframe` in the
+    // selector the wrap-around treated the button as both first and last, so Tab bounced
+    // off it and the keyboard never reached the donation form.
+    const FramedDialog = () => {
+      const { dialogRef, initialFocusRef } = useFocusTrap({ open: true, onClose: () => {} });
+      return (
+        <div ref={dialogRef} role="dialog" aria-label="framed">
+          <button ref={initialFocusRef} type="button">close</button>
+          <iframe title="widget" src="about:blank" />
+        </div>
+      );
+    };
+
+    render(<FramedDialog />);
+    expect(screen.getByText('close')).toHaveFocus();
+
+    // Focus is on the first element, so a forward Tab must not be intercepted at all.
+    const tab = fireEvent.keyDown(document, { key: 'Tab' });
+    expect(tab).toBe(true);
+
+    // ...and Shift+Tab from it wraps onto the iframe rather than back onto the button.
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(screen.getByTitle('widget')).toHaveFocus();
+  });
+
   it('restores focus to whatever was focused before it opened', () => {
     render(<button type="button">outside</button>);
     const outside = screen.getByText('outside');

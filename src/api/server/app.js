@@ -100,6 +100,10 @@ export const createApp = (options = {}) => {
         styleSrc: ["'self'"],
         imgSrc: ["'self'", 'data:'],
         connectSrc: ["'self'"],
+        // The Ko-fi support widget renders in its own browsing context, so only creating the
+        // frame needs authorising here: the framed document is governed by ko-fi.com's own CSP.
+        // script-src / img-src / connect-src stay closed on purpose.
+        frameSrc: ["'self'", 'https://ko-fi.com'],
         baseUri: ["'self'"],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],

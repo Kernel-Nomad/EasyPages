@@ -6,6 +6,9 @@ import { useEffect, useRef } from 'react';
 const FOCUSABLE = [
   'button:not([disabled])',
   '[href]',
+  // The Ko-fi widget in the support dialog IS the content. Without this the wrap-around
+  // bounced off the close button and the keyboard never reached the donation form.
+  'iframe:not([tabindex="-1"])',
   'input:not([disabled])',
   'select:not([disabled])',
   'textarea:not([disabled])',
