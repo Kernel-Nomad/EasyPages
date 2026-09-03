@@ -22,7 +22,9 @@ const DomainsTab = ({ project, csrfToken, onConfirm, onNotify }) => {
       setLoadError(false);
 
       try {
-        const data = await easyPagesClient.fetchDomains(project.name);
+        const data = await easyPagesClient.fetchDomains(project.name, {
+          signal: controller.signal,
+        });
         if (cancelled || controller.signal.aborted) {
           return;
         }

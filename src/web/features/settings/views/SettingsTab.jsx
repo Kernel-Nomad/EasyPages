@@ -11,6 +11,7 @@ const SettingsTab = ({ project, csrfToken, onNotify }) => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [savingBuild, setSavingBuild] = useState(false);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -21,7 +22,9 @@ const SettingsTab = ({ project, csrfToken, onNotify }) => {
       setLoadError(false);
 
       try {
-        const data = await easyPagesClient.fetchProjectSettings(project.name);
+        const data = await easyPagesClient.fetchProjectSettings(project.name, {
+          signal: controller.signal,
+        });
         if (cancelled || controller.signal.aborted) {
           return;
         }
@@ -51,8 +54,8 @@ const SettingsTab = ({ project, csrfToken, onNotify }) => {
       cancelled = true;
       controller.abort();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload only when the project changes
-  }, [project.name]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload only when the project changes or retry is requested
+  }, [project.name, reloadNonce]);
 
   const handleSaveBuild = async (event) => {
     event.preventDefault();
@@ -93,25 +96,7 @@ const SettingsTab = ({ project, csrfToken, onNotify }) => {
         <p className="text-sm text-gray-600">{t('config_load_error')}</p>
         <button
           type="button"
-          onClick={() => {
-            setLoading(true);
-            setLoadError(false);
-            easyPagesClient.fetchProjectSettings(project.name)
-              .then((data) => {
-                setBuildConfig({
-                  command: data.build_config?.command || '',
-                  output_dir: data.build_config?.output_dir || '',
-                });
-                setLoadError(false);
-              })
-              .catch((error) => {
-                if (!isSecurityError(error)) {
-                  setLoadError(true);
-                  onNotify('error', dashboardErrorMessage(error, 'config_load_error', t));
-                }
-              })
-              .finally(() => setLoading(false));
-          }}
+          onClick={() => setReloadNonce((current) => current + 1)}
           className="text-sm bg-gray-900 text-white px-3 py-1.5 rounded hover:bg-black transition-colors"
         >
           {t('auth_retry')}

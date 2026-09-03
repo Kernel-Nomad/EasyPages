@@ -106,21 +106,27 @@ test('uploadProjectBundle processes a valid ZIP and calls Cloudflare', async () 
   }
 });
 
+const mustNotRequestToken = {
+  get: async () => {
+    assert.fail('must not request an upload token for an invalid ZIP');
+  },
+  uploadAssets: async () => {
+    assert.fail('must not upload assets from an invalid ZIP');
+  },
+  post: async () => {
+    assert.fail('must not create a deployment from an invalid ZIP');
+  },
+};
+
 test('uploadProjectBundle rejects an entry whose real content exceeds maxZipEntryBytes', async () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'ep-upload-'));
   try {
     const zipPath = writeZip(dir, 'big.zip', [{ path: 'a.txt', data: '12345' }]);
 
-    const mockCloudflare = {
-      get: async () => ({ data: { result: { jwt: 'j' } } }),
-      uploadAssets: async () => {},
-      post: async () => {},
-    };
-
     await assert.rejects(
       () =>
         uploadProjectBundle({
-          cloudflare: mockCloudflare,
+          cloudflare: mustNotRequestToken,
           filePath: zipPath,
           projectName: 'demo',
           uploadLimits: {
@@ -145,16 +151,10 @@ test('uploadProjectBundle rejects a ZIP whose real uncompressed total exceeds th
       { path: 'b.txt', data: 'bb' },
     ]);
 
-    const mockCloudflare = {
-      get: async () => ({ data: { result: { jwt: 'j' } } }),
-      uploadAssets: async () => {},
-      post: async () => {},
-    };
-
     await assert.rejects(
       () =>
         uploadProjectBundle({
-          cloudflare: mockCloudflare,
+          cloudflare: mustNotRequestToken,
           filePath: zipPath,
           projectName: 'demo',
           uploadLimits: {
@@ -179,20 +179,10 @@ test('uploadProjectBundle rejects a ZIP that mixes safe files with zip-slip path
       { path: '../evil.txt', data: 'nope' },
     ]);
 
-    const mockCloudflare = {
-      get: async () => ({ data: { result: { jwt: 'j' } } }),
-      uploadAssets: async () => {
-        assert.fail('must not upload any assets from a tainted ZIP');
-      },
-      post: async () => {
-        assert.fail('must not create a deployment from a tainted ZIP');
-      },
-    };
-
     await assert.rejects(
       () =>
         uploadProjectBundle({
-          cloudflare: mockCloudflare,
+          cloudflare: mustNotRequestToken,
           filePath: zipPath,
           projectName: 'demo',
           uploadLimits: {
@@ -248,20 +238,10 @@ test('uploadProjectBundle rejects inflated entries that exceed the size cap', as
     const zipPath = path.join(dir, 'bomb.zip');
     writeFileSync(zipPath, Buffer.concat([localFull, cen, nameBuf, end]));
 
-    const mockCloudflare = {
-      get: async () => ({ data: { result: { jwt: 'j' } } }),
-      uploadAssets: async () => {
-        assert.fail('must not upload a zip bomb');
-      },
-      post: async () => {
-        assert.fail('must not deploy a zip bomb');
-      },
-    };
-
     await assert.rejects(
       () =>
         uploadProjectBundle({
-          cloudflare: mockCloudflare,
+          cloudflare: mustNotRequestToken,
           filePath: zipPath,
           projectName: 'demo',
           uploadLimits: {

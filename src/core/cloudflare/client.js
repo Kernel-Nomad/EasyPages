@@ -110,6 +110,31 @@ const mapCloudflareStatus = (cfStatus) => {
   return { status: cfStatus, code: undefined, expose: false };
 };
 
+/**
+ * Axios only rejects HTTP ≥ 400. The v4 envelope can still be `{ success: false }` on a
+ * 200, which would otherwise look like an empty list or a missing `result.jwt`.
+ *
+ * A 2xx + `success: false` is treated as 400 so the CF message reaches the operator
+ * (4xx are not masked) instead of becoming a silent empty payload.
+ *
+ * @param {{ status?: number, data?: unknown }} response
+ * @param {string} fallbackMessage
+ * @returns {{ status?: number, data?: unknown }}
+ */
+export const unwrapCloudflareResponse = (response, fallbackMessage) => {
+  const payload = response?.data;
+  if (payload && typeof payload === 'object' && payload.success === false) {
+    const status = Number.isInteger(response.status) && response.status >= 400
+      ? response.status
+      : 400;
+    throw normalizeCloudflareError(
+      { response: { status, data: payload } },
+      fallbackMessage,
+    );
+  }
+  return response;
+};
+
 export const normalizeCloudflareError = (error, fallbackMessage) => {
   if (error.response) {
     const mapped = mapCloudflareStatus(error.response.status);
@@ -148,26 +173,22 @@ export const normalizeCloudflareError = (error, fallbackMessage) => {
 };
 
 /**
- * Walk Cloudflare list endpoints that use page/per_page until the list is complete.
+ * Walk a page/per_page list until it is complete.
  *
  * Do not treat "fewer items than we asked for" as the last page: the v4 API often clamps
- * `per_page` (commonly to 50) and a short first page would silently drop the rest.
+ * `per_page` (commonly to 20 or 50) and a short first page would silently drop the rest.
  * Prefer `result_info`; without it, keep going until a page is empty.
  *
- * @param {{ get: (path: string) => Promise<{ data?: { result?: unknown, result_info?: { per_page?: number, total_count?: number, total_pages?: number } } }> }} cloudflare
- * @param {string} resourcePath Path under the account, without query string.
+ * @param {(page: number, perPage: number) => Promise<{ data?: { result?: unknown, result_info?: { per_page?: number, total_count?: number, total_pages?: number } } }>} fetchPage
  * @param {{ perPage?: number, maxPages?: number }} [options]
  * @returns {Promise<unknown[]>}
  */
-export const listAllPages = async (cloudflare, resourcePath, { perPage = 100, maxPages = 100 } = {}) => {
-  const separator = resourcePath.includes('?') ? '&' : '?';
+export const collectPagedResults = async (fetchPage, { perPage = 100, maxPages = 100 } = {}) => {
   const all = [];
   let page = 1;
 
   for (;;) {
-    const response = await cloudflare.get(
-      `${resourcePath}${separator}per_page=${perPage}&page=${page}`,
-    );
+    const response = await fetchPage(page, perPage);
     const result = response?.data?.result;
     const batch = Array.isArray(result) ? result : [];
     const info = response?.data?.result_info;
@@ -198,6 +219,24 @@ export const listAllPages = async (cloudflare, resourcePath, { perPage = 100, ma
   }
 
   return all;
+};
+
+/**
+ * Walk Cloudflare list endpoints that use page/per_page until the list is complete.
+ *
+ * @param {{ get: (path: string) => Promise<{ data?: { result?: unknown, result_info?: { per_page?: number, total_count?: number, total_pages?: number } } }> }} cloudflare
+ * @param {string} resourcePath Path under the account, without query string.
+ * @param {{ perPage?: number, maxPages?: number }} [options]
+ * @returns {Promise<unknown[]>}
+ */
+export const listAllPages = async (cloudflare, resourcePath, options) => {
+  const separator = resourcePath.includes('?') ? '&' : '?';
+  return collectPagedResults(
+    (page, perPage) => cloudflare.get(
+      `${resourcePath}${separator}per_page=${perPage}&page=${page}`,
+    ),
+    options,
+  );
 };
 
 /** `expose` lets the error handler forward message and code on a 5xx, where both are
@@ -280,31 +319,27 @@ export const createCloudflareClient = ({ apiToken, accountId }) => {
     headers: defaultHeaders,
   });
 
+  const send = async (fallbackMessage, request) => {
+    try {
+      return unwrapCloudflareResponse(await request(), fallbackMessage);
+    } catch (error) {
+      throw normalizeCloudflareError(error, fallbackMessage);
+    }
+  };
+
   const resolveAccountId = createAccountIdResolver({
     explicitAccountId: accountId,
-    listAccounts: async () => {
-      // /accounts is not under /accounts/:id, so call axios directly and paginate.
-      const all = [];
-      let page = 1;
-      const perPage = 50;
-      for (;;) {
-        const response = await client
-          .get(`/accounts?per_page=${perPage}&page=${page}`, mergeHeaders(defaultHeaders))
-          .catch((error) => {
-            throw normalizeCloudflareError(
-              error,
-              'Could not look up the Cloudflare account for this token',
-            );
-          });
-        const result = response?.data?.result;
-        const batch = Array.isArray(result) ? result : [];
-        all.push(...batch);
-        if (batch.length < perPage) {
-          break;
-        }
-        page += 1;
-      }
-      return all;
+    listAccounts: () => {
+      // /accounts is not under /accounts/:id, so call axios directly and paginate
+      // with the same result_info rules as listAllPages (CF clamps per_page, often to 20).
+      const fallbackMessage = 'Could not look up the Cloudflare account for this token';
+      return collectPagedResults(
+        (page, perPage) => send(
+          fallbackMessage,
+          () => client.get(`/accounts?per_page=${perPage}&page=${page}`, mergeHeaders(defaultHeaders)),
+        ),
+        { perPage: 50 },
+      );
     },
   });
 
@@ -313,32 +348,48 @@ export const createCloudflareClient = ({ apiToken, accountId }) => {
   return {
     resolveAccountId,
     get: async (resourcePath, config) =>
-      client.get(await accountPath(resourcePath), mergeHeaders(defaultHeaders, config)).catch((error) => {
-        throw normalizeCloudflareError(error, 'Error connecting to Cloudflare');
-      }),
+      send(
+        'Error connecting to Cloudflare',
+        async () => client.get(await accountPath(resourcePath), mergeHeaders(defaultHeaders, config)),
+      ),
     post: async (resourcePath, data, config) =>
-      client.post(await accountPath(resourcePath), data, mergeHeaders(defaultHeaders, config)).catch((error) => {
-        throw normalizeCloudflareError(error, 'Error sending data to Cloudflare');
-      }),
+      send(
+        'Error sending data to Cloudflare',
+        async () => client.post(
+          await accountPath(resourcePath),
+          data,
+          mergeHeaders(defaultHeaders, config),
+        ),
+      ),
     patch: async (resourcePath, data, config) =>
-      client.patch(await accountPath(resourcePath), data, mergeHeaders(defaultHeaders, config)).catch((error) => {
-        throw normalizeCloudflareError(error, 'Error updating data in Cloudflare');
-      }),
+      send(
+        'Error updating data in Cloudflare',
+        async () => client.patch(
+          await accountPath(resourcePath),
+          data,
+          mergeHeaders(defaultHeaders, config),
+        ),
+      ),
     delete: async (resourcePath, config) =>
-      client.delete(await accountPath(resourcePath), mergeHeaders(defaultHeaders, config)).catch((error) => {
-        throw normalizeCloudflareError(error, 'Error deleting a resource in Cloudflare');
-      }),
+      send(
+        'Error deleting a resource in Cloudflare',
+        async () => client.delete(
+          await accountPath(resourcePath),
+          mergeHeaders(defaultHeaders, config),
+        ),
+      ),
     uploadAssets: (filesToUpload, jwt) =>
-      axios.post(`${CF_API_URL}/pages/assets/upload`, filesToUpload, {
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: UPLOAD_ASSETS_TIMEOUT_MS,
-        maxBodyLength: Infinity,
-        maxContentLength: Infinity,
-      }).catch((error) => {
-        throw normalizeCloudflareError(error, 'Error uploading assets to Cloudflare');
-      }),
+      send(
+        'Error uploading assets to Cloudflare',
+        () => axios.post(`${CF_API_URL}/pages/assets/upload`, filesToUpload, {
+          headers: {
+            Authorization: `Bearer ${jwt}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: UPLOAD_ASSETS_TIMEOUT_MS,
+          maxBodyLength: Infinity,
+          maxContentLength: Infinity,
+        }),
+      ),
   };
 };

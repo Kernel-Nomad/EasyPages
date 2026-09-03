@@ -52,9 +52,9 @@ ENV EASYPAGES_DATA_DIR=/data
 EXPOSE 8002
 
 # Defined in the image, not only in docker-compose.yml, so a user's stale compose file is
-# not the only place the probe lives.
+# not the only place the probe lives. PORT is a documented variable; the probe must follow it.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:8002/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8002)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 # `node server.js` rather than `pnpm start`: one process fewer, correct signal handling, and
 # no package manager in the runtime path.

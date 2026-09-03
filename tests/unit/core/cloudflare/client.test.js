@@ -289,3 +289,76 @@ test('listAllPages treats a non-array result as empty', async () => {
   };
   assert.deepEqual(await listAllPages(cloudflare, '/pages/projects'), []);
 });
+
+test('unwrapCloudflareResponse throws on HTTP 200 with success:false', async () => {
+  const { unwrapCloudflareResponse } = await import('../../../../src/core/cloudflare/client.js');
+
+  await assert.throws(
+    () => unwrapCloudflareResponse(
+      {
+        status: 200,
+        data: { success: false, result: null, errors: [{ message: 'No good' }] },
+      },
+      'fallback',
+    ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.match(error.message, /No good/);
+      return true;
+    },
+  );
+});
+
+test('unwrapCloudflareResponse lets a successful envelope through', async () => {
+  const { unwrapCloudflareResponse } = await import('../../../../src/core/cloudflare/client.js');
+  const response = { status: 200, data: { success: true, result: [] } };
+  assert.equal(unwrapCloudflareResponse(response, 'fallback'), response);
+});
+
+test('unwrapCloudflareResponse ignores a missing success flag', async () => {
+  const { unwrapCloudflareResponse } = await import('../../../../src/core/cloudflare/client.js');
+  const response = { status: 200, data: { result: [{ id: 'a' }] } };
+  assert.equal(unwrapCloudflareResponse(response, 'fallback'), response);
+});
+
+test('collectPagedResults keeps walking when Cloudflare clamps per_page to 20', async () => {
+  const { collectPagedResults } = await import('../../../../src/core/cloudflare/client.js');
+  const calls = [];
+  const all = await collectPagedResults(async (page, perPage) => {
+    calls.push({ page, perPage });
+    if (page === 1) {
+      return {
+        data: {
+          result: Array.from({ length: 20 }, (_, i) => ({ id: `a${i}` })),
+          result_info: { per_page: 20, total_count: 25, total_pages: 2, page: 1 },
+        },
+      };
+    }
+    return {
+      data: {
+        result: Array.from({ length: 5 }, (_, i) => ({ id: `b${i}` })),
+        result_info: { per_page: 20, total_count: 25, total_pages: 2, page: 2 },
+      },
+    };
+  }, { perPage: 50 });
+
+  assert.equal(all.length, 25);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].perPage, 50);
+});
+
+test('multipart form-data headers win over the JSON Content-Type default', async () => {
+  const { AxiosHeaders } = await import('axios');
+  const FormData = (await import('form-data')).default;
+  const formData = new FormData();
+  formData.append('manifest', '{}');
+  const merged = {
+    Authorization: 'Bearer t',
+    'Content-Type': 'application/json',
+    ...formData.getHeaders(),
+  };
+  const headers = AxiosHeaders.from(merged);
+  const contentType = String(headers.get('Content-Type') || '');
+  assert.match(contentType, /multipart\/form-data/i);
+  assert.doesNotMatch(contentType, /application\/json/i);
+});

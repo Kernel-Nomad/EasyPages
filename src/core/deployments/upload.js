@@ -84,10 +84,6 @@ export const uploadProjectBundle = async ({
 }) => {
   const limits = createUploadLimits(uploadLimits);
   const encodedProject = encodeURIComponent(projectName);
-  const tokenResponse = await cloudflare.get(
-    `/pages/projects/${encodedProject}/upload-token`,
-  );
-  const jwt = tokenResponse.data.result.jwt;
 
   let zip;
   try {
@@ -102,21 +98,8 @@ export const uploadProjectBundle = async ({
     throw payloadTooLarge('The ZIP archive contains too many files.');
   }
 
-  const manifest = {};
+  const files = [];
   let totalUncompressedBytes = 0;
-  let pendingUploadBatch = [];
-  let pendingUploadBytes = 0;
-  let uploadedFileCount = 0;
-
-  const flushUploadBatch = async () => {
-    if (pendingUploadBatch.length === 0) {
-      return;
-    }
-
-    await cloudflare.uploadAssets(pendingUploadBatch, jwt);
-    pendingUploadBatch = [];
-    pendingUploadBytes = 0;
-  };
 
   for (const entry of zipEntries) {
     if (entry.isDirectory) {
@@ -148,6 +131,38 @@ export const uploadProjectBundle = async ({
       );
     }
 
+    files.push({
+      content,
+      hash: crypto.createHash('md5').update(content).digest('hex'),
+      path: normalizedEntryPath,
+    });
+  }
+
+  if (files.length === 0) {
+    throw validationError('The ZIP file is empty or contains no valid, safe files.');
+  }
+
+  const tokenResponse = await cloudflare.get(
+    `/pages/projects/${encodedProject}/upload-token`,
+  );
+  const jwt = tokenResponse.data.result.jwt;
+
+  const manifest = {};
+  let pendingUploadBatch = [];
+  let pendingUploadBytes = 0;
+
+  const flushUploadBatch = async () => {
+    if (pendingUploadBatch.length === 0) {
+      return;
+    }
+
+    await cloudflare.uploadAssets(pendingUploadBatch, jwt);
+    pendingUploadBatch = [];
+    pendingUploadBytes = 0;
+  };
+
+  for (const file of files) {
+    const actualSize = file.content.length;
     if (
       pendingUploadBatch.length > 0
       && (
@@ -158,21 +173,14 @@ export const uploadProjectBundle = async ({
       await flushUploadBatch();
     }
 
-    const hash = crypto.createHash('md5').update(content).digest('hex');
-
     pendingUploadBatch.push({
-      key: hash,
-      value: content.toString('base64'),
-      metadata: { contentType: getMimeType(normalizedEntryPath) },
+      key: file.hash,
+      value: file.content.toString('base64'),
+      metadata: { contentType: getMimeType(file.path) },
       base64: true,
     });
     pendingUploadBytes += actualSize;
-    uploadedFileCount += 1;
-    manifest[normalizedEntryPath] = hash;
-  }
-
-  if (uploadedFileCount === 0) {
-    throw validationError('The ZIP file is empty or contains no valid, safe files.');
+    manifest[file.path] = file.hash;
   }
 
   await flushUploadBatch();

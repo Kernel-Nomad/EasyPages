@@ -134,7 +134,8 @@ export const deleteDeployments = ({ projectName, csrfToken, deploymentIds }) =>
     json: { deploymentIds },
   });
 
-export const fetchDomains = (projectName) => fetch(`${projectApiPath(projectName)}/domains`);
+export const fetchDomains = (projectName, { signal } = {}) =>
+  easyPagesFetch(`${projectApiPath(projectName)}/domains`, { signal });
 
 export const addDomain = ({ projectName, csrfToken, name }) =>
   easyPagesFetch(`${projectApiPath(projectName)}/domains`, {
@@ -149,8 +150,8 @@ export const deleteDomain = ({ projectName, csrfToken, domainName }) =>
     csrfToken,
   });
 
-export const fetchProjectSettings = (projectName) =>
-  fetch(`${projectApiPath(projectName)}/settings`);
+export const fetchProjectSettings = (projectName, { signal } = {}) =>
+  easyPagesFetch(`${projectApiPath(projectName)}/settings`, { signal });
 
 export const updateProjectBuildConfig = ({ projectName, csrfToken, buildConfig }) =>
   easyPagesFetch(projectApiPath(projectName), {
@@ -382,12 +383,12 @@ export const easyPagesClient = {
     requestApi(() => fetchDeployments(projectName, { page, signal }), {
       fallbackMessage: 'Error loading deployments.',
     }),
-  fetchDomains: (projectName) =>
-    requestApi(() => fetchDomains(projectName), {
+  fetchDomains: (projectName, { signal } = {}) =>
+    requestApi(() => fetchDomains(projectName, { signal }), {
       fallbackMessage: 'Error loading domains.',
     }),
-  fetchProjectSettings: (projectName) =>
-    requestApi(() => fetchProjectSettings(projectName), {
+  fetchProjectSettings: (projectName, { signal } = {}) =>
+    requestApi(() => fetchProjectSettings(projectName, { signal }), {
       fallbackMessage: 'Error loading the project configuration.',
     }),
   fetchProjects: () =>

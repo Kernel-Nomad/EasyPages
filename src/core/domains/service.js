@@ -1,9 +1,11 @@
 import { listAllPages } from '../cloudflare/client.js';
+import { mapCloudflareDomain } from './mappers.js';
 
 export const createDomainsService = ({ cloudflare }) => ({
   async listDomains({ projectName }) {
     const encoded = encodeURIComponent(projectName);
-    return listAllPages(cloudflare, `/pages/projects/${encoded}/domains`);
+    const domains = await listAllPages(cloudflare, `/pages/projects/${encoded}/domains`);
+    return domains.map(mapCloudflareDomain);
   },
 
   async addDomain({ name, projectName }) {
@@ -11,7 +13,7 @@ export const createDomainsService = ({ cloudflare }) => ({
       `/pages/projects/${encodeURIComponent(projectName)}/domains`,
       { name },
     );
-    return response.data.result;
+    return mapCloudflareDomain(response.data.result);
   },
 
   async deleteDomain({ domainName, projectName }) {

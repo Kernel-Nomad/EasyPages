@@ -224,7 +224,7 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, sessio
     setCreateError(null);
 
     try {
-      await easyPagesClient.createProject({
+      const created = await easyPagesClient.createProject({
         csrfToken,
         name: newProjectName,
       });
@@ -233,6 +233,17 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, sessio
       setShowCreateModal(false);
       setNewProjectName('');
       setCreateError(null);
+      // The POST already returned the new project. Keep it visible if the follow-up
+      // list refresh fails (the project exists on Cloudflare either way).
+      if (created && typeof created === 'object') {
+        setProjects((current) => {
+          const alreadyListed = created.id
+            ? current.some((project) => project.id === created.id)
+            : current.some((project) => project.name === created.name);
+          return alreadyListed ? current : [created, ...current];
+        });
+        setProjectsLoadError(false);
+      }
       await loadProjects();
     } catch (error) {
       if (!isSecurityError(error)) {

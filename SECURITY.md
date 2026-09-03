@@ -9,8 +9,9 @@ Please do not open a public issue for anything exploitable.
 
 A single-operator control panel for Cloudflare Pages, meant to run on your own machine or
 homelab. There is one account, no roles and no multi-tenancy. Anyone who signs in can
-create, deploy and delete Pages projects and domains with your Cloudflare API token, so
-**treat access to EasyPages as equivalent to access to that token.**
+create projects, trigger deployments, and manage custom domains with your Cloudflare API
+token, so **treat access to EasyPages as equivalent to access to that token.** It does
+not delete Pages projects.
 
 ## Authentication model
 
@@ -21,7 +22,9 @@ create, deploy and delete Pages projects and domains with your Cloudflare API to
   digest), stored as `scrypt$N$r$p$salt$hash`. The parameters live inside the hash, so they
   can be raised later without invalidating what is stored.
 - **Sessions:** a signed, HttpOnly, SameSite=Lax cookie (`easypages_sid`), 24 hours. The
-  cookie is signed, not encrypted — it carries a username and a token version, no secrets.
+  cookie is signed, not encrypted — it carries a username, a token version, and the CSRF
+  token (the same value also returned in JSON). It does not carry the password or the
+  Cloudflare API token.
 - **Server-side invalidation:** every credential change bumps `token_version`, which
   invalidates every cookie issued before it. That is how "sign out all other devices"
   works with a stateless cookie.

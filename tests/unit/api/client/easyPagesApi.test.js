@@ -9,6 +9,7 @@ import {
   easyPagesClient,
   EasyPagesApiError,
   fetchAuthStatus,
+  fetchDomains,
   isBackendUnreachableError,
   resetEasyPagesApi,
 } from '../../../../src/api/client/easyPagesApi.js';
@@ -73,6 +74,18 @@ test('addDomain targets the project domains path', async () => {
 
   await addDomain({ projectName: 'demo', csrfToken: 'x', name: 'x.example.com' });
   assert.equal(url, '/api/projects/demo/domains');
+});
+
+test('fetchDomains forwards an AbortSignal', async () => {
+  const controller = new AbortController();
+  let requestInit;
+  globalThis.fetch = (u, init) => {
+    requestInit = init;
+    return Promise.resolve(jsonResponse([]));
+  };
+
+  await fetchDomains('demo', { signal: controller.signal });
+  assert.equal(requestInit.signal, controller.signal);
 });
 
 test('changeCredentials omits empty fields instead of sending them blank', async () => {
