@@ -69,6 +69,7 @@ export default function App() {
     csrfToken,
     isSecurityError,
     onNotify: showNotification,
+    sessionActive: authState === 'ready',
     t,
   });
 
@@ -78,6 +79,11 @@ export default function App() {
   useEffect(() => {
     if (authState !== 'ready') {
       setNotification(null);
+      setShowAccountModal(false);
+      setConfirmation((current) => {
+        current?.resolve?.(false);
+        return null;
+      });
       return;
     }
     loadProjects();
@@ -122,7 +128,7 @@ export default function App() {
     } catch (error) {
       if (!isSecurityError(error)) {
         console.error('Error signing out', error);
-        showNotification('error', error.message || t('logout_error'));
+        showNotification('error', t('logout_error'));
       }
     }
   };

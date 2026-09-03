@@ -109,6 +109,14 @@ const DeploymentList = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const selectAllRef = useRef(null);
+  const cancelledRef = useRef(false);
+
+  useEffect(() => {
+    cancelledRef.current = false;
+    return () => {
+      cancelledRef.current = true;
+    };
+  }, []);
 
   useEffect(() => {
     setSelectedIds(new Set());
@@ -167,7 +175,7 @@ const DeploymentList = ({
       destructive: true,
     });
 
-    if (!confirmed) {
+    if (!confirmed || cancelledRef.current) {
       return;
     }
 
@@ -179,26 +187,38 @@ const DeploymentList = ({
       const results = { failed: 0, skipped: 0, success: 0 };
 
       for (let index = 0; index < ids.length; index += chunkSize) {
+        if (cancelledRef.current) {
+          return;
+        }
         const chunk = ids.slice(index, index + chunkSize);
         const chunkResult = await easyPagesClient.deleteDeployments({
           projectName,
           csrfToken,
           deploymentIds: chunk,
         });
+        if (cancelledRef.current) {
+          return;
+        }
         results.failed += chunkResult.failed;
         results.success += chunkResult.success;
         results.skipped += chunkResult.skipped || 0;
       }
 
       notifyDeleteResult(results);
+      setSelectedIds(new Set());
       await onRefresh();
     } catch (error) {
+      if (cancelledRef.current) {
+        return;
+      }
       if (!isSecurityError(error)) {
         console.error(error);
         onNotify('error', dashboardErrorMessage(error, 'deploy_delete_error', t));
       }
     } finally {
-      setIsDeleting(false);
+      if (!cancelledRef.current) {
+        setIsDeleting(false);
+      }
     }
   };
 
@@ -210,7 +230,7 @@ const DeploymentList = ({
       destructive: true,
     });
 
-    if (!confirmed) {
+    if (!confirmed || cancelledRef.current) {
       return;
     }
 
@@ -218,6 +238,9 @@ const DeploymentList = ({
 
     try {
       const data = await easyPagesClient.fetchDeploymentDeleteCandidates(projectName);
+      if (cancelledRef.current) {
+        return;
+      }
       const idsToDelete = data.ids || [];
 
       if (data.truncated || data.fetchError) {
@@ -227,8 +250,10 @@ const DeploymentList = ({
           confirmLabel: t('continue'),
           destructive: true,
         });
-        if (!proceed) {
-          setIsDeleting(false);
+        if (cancelledRef.current || !proceed) {
+          if (!cancelledRef.current) {
+            setIsDeleting(false);
+          }
           return;
         }
       }
@@ -245,12 +270,18 @@ const DeploymentList = ({
       const results = { failed: 0, skipped: 0, success: 0 };
 
       for (let index = 0; index < idsToDelete.length; index += chunkSize) {
+        if (cancelledRef.current) {
+          return;
+        }
         const chunk = idsToDelete.slice(index, index + chunkSize);
         const chunkResult = await easyPagesClient.deleteDeployments({
           projectName,
           csrfToken,
           deploymentIds: chunk,
         });
+        if (cancelledRef.current) {
+          return;
+        }
 
         results.failed += chunkResult.failed;
         results.success += chunkResult.success;
@@ -263,15 +294,21 @@ const DeploymentList = ({
       }
 
       notifyDeleteResult(results);
+      setSelectedIds(new Set());
       await onRefresh();
     } catch (error) {
+      if (cancelledRef.current) {
+        return;
+      }
       if (!isSecurityError(error)) {
         console.error(error);
         onNotify('error', dashboardErrorMessage(error, 'deploy_delete_error', t));
       }
     } finally {
-      setIsDeleting(false);
-      setProgress({ current: 0, total: 0 });
+      if (!cancelledRef.current) {
+        setIsDeleting(false);
+        setProgress({ current: 0, total: 0 });
+      }
     }
   };
 

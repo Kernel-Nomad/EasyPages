@@ -11,6 +11,9 @@ const DASHBOARD_I18N_ERROR_CODES = new Set([
   'cf_unauthorized',
   'cf_forbidden',
   'cf_rate_limited',
+  'cf_timeout',
+  'cf_unreachable',
+  'cf_upstream',
   'cf_account_not_found',
   'cf_account_ambiguous',
   'csrf_invalid',
@@ -31,5 +34,5 @@ export const dashboardErrorMessage = (error, fallbackKey, t) => {
     }
     return t(error.code);
   }
-  return error?.message || t(fallbackKey);
+  return t(fallbackKey);
 };

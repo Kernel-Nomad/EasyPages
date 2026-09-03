@@ -5,7 +5,7 @@ import { dashboardErrorMessage } from '../../shared/i18n/dashboardErrors.js';
 /** Delay before re-fetching deployments so Cloudflare can register the new deployment. */
 const DEPLOYMENTS_LIST_REFRESH_DELAY_MS = 2000;
 
-export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) => {
+export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, sessionActive, t }) => {
   const [view, setView] = useState('list');
   const [selectedProject, setSelectedProject] = useState(null);
   const [activeTab, setActiveTab] = useState('deployments');
@@ -129,6 +129,41 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) =
     clearScheduledDeploymentsRefresh();
   }, []);
 
+  useEffect(() => {
+    if (sessionActive) {
+      return undefined;
+    }
+    clearScheduledDeploymentsRefresh();
+    deploymentsGenerationRef.current += 1;
+    deploymentsAbortControllerRef.current?.abort();
+    setView('list');
+    setSelectedProject(null);
+    setActiveTab('deployments');
+    setProjects([]);
+    setProjectsLoadError(false);
+    setDeployments([]);
+    setProductionDeploymentId(null);
+    setDeploymentsPage(1);
+    setDeploymentsHasMore(false);
+    setLoading(true);
+    setLoadingDeployments(false);
+    setIsDeploying(false);
+    setShowCreateModal(false);
+    setNewProjectName('');
+    setCreating(false);
+    setCreateError(null);
+    return undefined;
+  }, [sessionActive]);
+
+  const beginDeploymentsFetch = (projectName, { append = false, page = 1 } = {}) => {
+    clearScheduledDeploymentsRefresh();
+    deploymentsGenerationRef.current += 1;
+    deploymentsAbortControllerRef.current?.abort();
+    const nextController = new AbortController();
+    deploymentsAbortControllerRef.current = nextController;
+    return loadDeployments(projectName, { append, page, signal: nextController.signal });
+  };
+
   const handleTriggerDeploy = async () => {
     if (!selectedProject) {
       return;
@@ -150,7 +185,7 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) =
         if (generationAtTrigger !== deploymentsGenerationRef.current) {
           return;
         }
-        loadDeployments(projectName);
+        beginDeploymentsFetch(projectName);
       }, DEPLOYMENTS_LIST_REFRESH_DELAY_MS);
     } catch (error) {
       if (!isSecurityError(error)) {
@@ -207,6 +242,7 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) =
     setProductionDeploymentId(null);
     setDeploymentsPage(1);
     setDeploymentsHasMore(false);
+    setIsDeploying(false);
   };
 
   const handleUploadSuccess = () => {
@@ -214,8 +250,7 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, t }) =
       return;
     }
 
-    clearScheduledDeploymentsRefresh();
-    loadDeployments(selectedProject.name);
+    beginDeploymentsFetch(selectedProject.name);
     setActiveTab('deployments');
     onNotify('success', t('upload_success_msg'));
   };

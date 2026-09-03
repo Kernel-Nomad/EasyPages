@@ -21,7 +21,13 @@ const rateLimitedHandler = (fallbackRetryAfter, message) => (req, res) => {
  *
  * Upload and create-project also get a peer bucket when TRUST_PROXY is on: `X-Forwarded-For`
  * is client-controlled, so the socket peer is the bucket a spoofer cannot escape.
+ *
+ * Count 2xx (real work) and 413 (they occupied the pipeline). Skip 400/422 and 5xx so a
+ * mistyped name or an empty drop cannot lock the operator out of their own instance.
  */
+const mutatingWorkWasSuccessful = (req, res) =>
+  res.statusCode < 400 || res.statusCode === 413;
+
 export const createRateLimiters = () => {
   const staticLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -42,11 +48,18 @@ export const createRateLimiters = () => {
     handler: rateLimitedHandler(900, 'Too many requests. Try again later.'),
   });
 
+  const mutatingWork = {
+    skipSuccessfulRequests: false,
+    skipFailedRequests: true,
+    requestWasSuccessful: mutatingWorkWasSuccessful,
+  };
+
   const uploadReported = rateLimit({
     windowMs: 60 * 60 * 1000,
     limit: 10,
     standardHeaders: true,
     legacyHeaders: false,
+    ...mutatingWork,
     handler: rateLimitedHandler(3600, 'Upload limit exceeded. Try again later.'),
   });
 
@@ -55,6 +68,7 @@ export const createRateLimiters = () => {
     limit: 40,
     standardHeaders: true,
     legacyHeaders: false,
+    ...mutatingWork,
     keyGenerator: peerKey,
     skip: (req) => req.ip === peerKey(req),
     handler: rateLimitedHandler(3600, 'Upload limit exceeded. Try again later.'),
@@ -65,6 +79,7 @@ export const createRateLimiters = () => {
     limit: 20,
     standardHeaders: true,
     legacyHeaders: false,
+    ...mutatingWork,
     handler: rateLimitedHandler(900, 'Too many project creation requests.'),
   });
 
@@ -73,6 +88,7 @@ export const createRateLimiters = () => {
     limit: 80,
     standardHeaders: true,
     legacyHeaders: false,
+    ...mutatingWork,
     keyGenerator: peerKey,
     skip: (req) => req.ip === peerKey(req),
     handler: rateLimitedHandler(900, 'Too many project creation requests.'),

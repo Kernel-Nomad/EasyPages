@@ -2,6 +2,8 @@ import axios from 'axios';
 
 const CF_API_URL = 'https://api.cloudflare.com/client/v4';
 const DEFAULT_TIMEOUT_MS = 15000;
+/** Direct Upload batches are JSON of base64 files; 15s is enough for a GET, not for 8 MiB. */
+const UPLOAD_ASSETS_TIMEOUT_MS = 120000;
 
 const mergeHeaders = (defaultHeaders, config = {}) => ({
   ...config,
@@ -102,6 +104,9 @@ const mapCloudflareStatus = (cfStatus) => {
   if (cfStatus === 429) {
     return { status: 503, code: 'cf_rate_limited', expose: true };
   }
+  if (cfStatus >= 500) {
+    return { status: 502, code: 'cf_upstream', expose: true };
+  }
   return { status: cfStatus, code: undefined, expose: false };
 };
 
@@ -124,11 +129,19 @@ export const normalizeCloudflareError = (error, fallbackMessage) => {
   }
 
   if (error.code === 'ECONNABORTED') {
-    return Object.assign(new Error('Timed out connecting to Cloudflare'), { status: 504 });
+    return Object.assign(new Error('Timed out connecting to Cloudflare'), {
+      status: 504,
+      code: 'cf_timeout',
+      expose: true,
+    });
   }
 
   if (error.request) {
-    return Object.assign(new Error('Could not connect to Cloudflare'), { status: 502 });
+    return Object.assign(new Error('Could not connect to Cloudflare'), {
+      status: 502,
+      code: 'cf_unreachable',
+      expose: true,
+    });
   }
 
   return error;
@@ -302,7 +315,7 @@ export const createCloudflareClient = ({ apiToken, accountId }) => {
           Authorization: `Bearer ${jwt}`,
           'Content-Type': 'application/json',
         },
-        timeout: DEFAULT_TIMEOUT_MS,
+        timeout: UPLOAD_ASSETS_TIMEOUT_MS,
         maxBodyLength: Infinity,
         maxContentLength: Infinity,
       }).catch((error) => {

@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 const ConfirmDialog = ({ confirmation, onCancel, onConfirm }) => {
   const { t } = useTranslation();
@@ -9,6 +10,7 @@ const ConfirmDialog = ({ confirmation, onCancel, onConfirm }) => {
   const descriptionId = useId();
   // Unconditional: the early return below happens after every hook has run.
   const { dialogRef } = useFocusTrap({ open: Boolean(confirmation), onClose: onCancel });
+  useBodyScrollLock(Boolean(confirmation));
 
   if (!confirmation) {
     return null;

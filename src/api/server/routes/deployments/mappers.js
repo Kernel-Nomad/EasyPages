@@ -1,5 +1,5 @@
 export const toDeleteDeploymentsInput = (req) => ({
-  deploymentIds: req.body.deploymentIds,
+  deploymentIds: req.body.deploymentIds.map((id) => id.trim()),
   projectName: req.params.projectName,
 });
 

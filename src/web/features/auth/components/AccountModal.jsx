@@ -10,6 +10,7 @@ import {
 } from '../../../../shared/authPolicy.js';
 import { authErrorMessage } from '../../../shared/i18n/authErrors.js';
 import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
+import { useBodyScrollLock } from '../../../shared/hooks/useBodyScrollLock';
 
 const FIELD_CLASS =
   'w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500';
@@ -21,6 +22,7 @@ const AccountModal = ({ onClose, onSubmit, username }) => {
   const usernameId = useId();
   const passwordId = useId();
   const { dialogRef, initialFocusRef } = useFocusTrap({ open: true, onClose });
+  useBodyScrollLock(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [submitting, setSubmitting] = useState(false);

@@ -45,14 +45,37 @@ export const createDeploymentsRouter = ({
         return;
       }
 
-      if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
+      if (error instanceof multer.MulterError) {
+        if (error.code === 'LIMIT_FILE_SIZE') {
+          sendErrorResponse(
+            res,
+            createHttpError(413, 'The ZIP file exceeds the maximum allowed size.', {
+              code: 'payload_too_large',
+            }),
+            'Failed to process the uploaded file',
+            req,
+          );
+          return;
+        }
+
         sendErrorResponse(
           res,
-          createHttpError(413, 'The ZIP file exceeds the maximum allowed size.', {
-            code: 'payload_too_large',
+          createHttpError(400, 'The uploaded file could not be processed.', {
+            code: 'validation_error',
           }),
           'Failed to process the uploaded file',
           req,
+        );
+        return;
+      }
+
+      if (error?.message === 'Request aborted' || error?.message === 'Request closed') {
+        sendErrorResponse(
+          res,
+          createHttpError(400, 'The upload was interrupted.', {
+            code: 'validation_error',
+          }),
+          'Failed to process the uploaded file',
         );
         return;
       }

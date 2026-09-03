@@ -90,8 +90,10 @@ export const useAuthSession = () => {
 
   const handleUnauthorized = useCallback(() => {
     setUsername(null);
-    setAuthState((current) => (current === 'setup' ? current : 'login'));
-  }, []);
+    // Read /api/auth/status: a 401 setup_required (credentials gone) must draw the wizard,
+    // not the login form. session_expired still lands on login.
+    void bootstrap();
+  }, [bootstrap]);
 
   useEffect(() => {
     configureEasyPagesApi({

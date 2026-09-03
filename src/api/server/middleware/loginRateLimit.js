@@ -33,14 +33,16 @@ const rateLimitHandler = (req, res) => {
 };
 
 /**
- * Only a failed credential check consumes the budget — except /setup during the claim
- * window, where every hashing attempt must count. A 422 is validation, a 409 is
+ * Only a failed credential check consumes the budget. A 422 is validation, a 409 is
  * already-done; charging those locked operators out of their own fresh install.
+ * On /setup a 201 must not leave a strike after resetLoginFailures, and a 403 CSRF
+ * must not count: it never hashed.
  */
 const requestWasSuccessful = (req, res) => {
   const path = req.path || '';
   if (path === '/setup' || path.endsWith('/setup')) {
-    return res.statusCode === 409 || res.statusCode === 422;
+    const status = res.statusCode;
+    return status === 201 || status === 403 || status === 409 || status === 422;
   }
   return res.statusCode !== 401;
 };

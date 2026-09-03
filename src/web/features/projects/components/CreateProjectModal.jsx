@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
+import { useBodyScrollLock } from '../../../shared/hooks/useBodyScrollLock';
 
 const CreateProjectModal = ({
   creating,
@@ -17,6 +18,7 @@ const CreateProjectModal = ({
   const errorId = useId();
   // The trap focuses `initialFocusRef` on open, replacing `autoFocus`.
   const { dialogRef, initialFocusRef } = useFocusTrap({ open: true, onClose });
+  useBodyScrollLock(true);
 
   return (
     <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -59,8 +61,7 @@ const CreateProjectModal = ({
               <button
                 type="button"
                 onClick={onClose}
-                disabled={creating}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium disabled:opacity-50"
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium"
               >
                 {t('cancel')}
               </button>

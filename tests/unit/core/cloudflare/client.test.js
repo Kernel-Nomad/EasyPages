@@ -159,6 +159,15 @@ test('normalizeCloudflareError maps 401/403/429 away from session statuses', asy
   );
   assert.equal(rateLimited.status, 503);
   assert.equal(rateLimited.code, 'cf_rate_limited');
+  assert.equal(rateLimited.expose, true);
+
+  const upstream = normalizeCloudflareError(
+    { response: { status: 500, data: { errors: [{ message: 'Boom' }] } } },
+    'fallback',
+  );
+  assert.equal(upstream.status, 502);
+  assert.equal(upstream.code, 'cf_upstream');
+  assert.equal(upstream.expose, true);
 
   const notFound = normalizeCloudflareError(
     { response: { status: 404, data: { errors: [{ message: 'Missing' }] } } },
@@ -166,6 +175,20 @@ test('normalizeCloudflareError maps 401/403/429 away from session statuses', asy
   );
   assert.equal(notFound.status, 404);
   assert.equal(notFound.code, undefined);
+});
+
+test('normalizeCloudflareError exposes timeouts and connection failures', async () => {
+  const { normalizeCloudflareError } = await import('../../../../src/core/cloudflare/client.js');
+
+  const timeout = normalizeCloudflareError({ code: 'ECONNABORTED' }, 'fallback');
+  assert.equal(timeout.status, 504);
+  assert.equal(timeout.code, 'cf_timeout');
+  assert.equal(timeout.expose, true);
+
+  const unreachable = normalizeCloudflareError({ request: {} }, 'fallback');
+  assert.equal(unreachable.status, 502);
+  assert.equal(unreachable.code, 'cf_unreachable');
+  assert.equal(unreachable.expose, true);
 });
 
 test('listAllPages walks until a short page', async () => {

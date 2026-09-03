@@ -21,7 +21,10 @@ const mockBackend = (routes) => {
     if (!handler) {
       return Promise.resolve(jsonResponse({ error: 'no route', code: 'not_found' }, 404));
     }
-    return Promise.resolve(typeof handler === 'function' ? handler(init) : handler);
+    const resolved = typeof handler === 'function' ? handler(init) : handler;
+    // A Response body can be read once. Tests that log out and back in hit the same
+    // route twice; clone so the second fetch is not `null` after parse.
+    return Promise.resolve(resolved instanceof Response ? resolved.clone() : resolved);
   });
   return calls;
 };
@@ -137,6 +140,27 @@ describe('App authentication state machine', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
+  it('draws the setup wizard when a mid-session 401 is setup_required', async () => {
+    let setupComplete = true;
+    mockBackend({
+      '/api/auth/status': () => jsonResponse(statusBody({
+        setup_complete: setupComplete,
+        authenticated: setupComplete,
+        username: setupComplete ? 'admin' : null,
+      })),
+      '/api/projects': () => (setupComplete
+        ? jsonResponse([])
+        : jsonResponse({ error: 'Initial setup is pending.', code: 'setup_required' }, 401)),
+    });
+
+    render(<App />);
+    const refresh = await screen.findByRole('button', { name: /Refresh List/i });
+    setupComplete = false;
+    fireEvent.click(refresh);
+
+    expect(await screen.findByRole('button', { name: 'Create account' })).toBeInTheDocument();
+  });
+
   it('goes straight from the wizard to the dashboard', async () => {
     mockBackend({
       '/api/auth/status': jsonResponse(statusBody({
@@ -189,5 +213,50 @@ describe('App authentication state machine', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Logout/ }));
 
     expect(await screen.findByRole('button', { name: 'Sign in' })).toBeInTheDocument();
+  });
+
+  it('returns to the project list after signing back in from a project', async () => {
+    let authenticated = true;
+    mockBackend({
+      '/api/auth/status': () => jsonResponse(statusBody({
+        authenticated,
+        username: authenticated ? 'admin' : null,
+      })),
+      '/api/auth/logout': () => {
+        authenticated = false;
+        return jsonResponse({ status: 'ok' });
+      },
+      '/api/auth/login': () => {
+        authenticated = true;
+        return jsonResponse({ username: 'admin', csrf_token: 'new-token' });
+      },
+      '/api/projects/demo/deployments': jsonResponse({
+        deployments: [],
+        hasMore: false,
+        page: 1,
+        productionDeploymentId: null,
+      }),
+      '/api/projects': jsonResponse([{
+        id: 'p1',
+        name: 'demo',
+        subdomain: 'demo.pages.dev',
+        source: { type: 'upload' },
+        latest_deployment: { status: 'success' },
+      }]),
+    });
+
+    render(<App />);
+    fireEvent.click(await screen.findByRole('button', { name: 'demo' }));
+    expect(await screen.findByRole('button', { name: /Back/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Logout/ }));
+    expect(await screen.findByRole('button', { name: 'Sign in' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'admin' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'a-password' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    expect(await screen.findByRole('button', { name: /Create New Project/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Back/i })).not.toBeInTheDocument();
   });
 });
