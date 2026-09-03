@@ -73,9 +73,9 @@ whole setup: there is no user or password in `.env`, and no environment variable
 replace or bypass the account. Do it right away — until the account exists, anyone who can
 reach the port can create it (see [SECURITY.md](SECURITY.md)).
 
-No git clone required. **Login over HTTP:** [`.env.example`](.env.example) sets `SESSION_COOKIE_SECURE=false`. If you terminate **HTTPS** in front of the container, set `SESSION_COOKIE_SECURE=true`. Session data is stored in a **signed cookie** (`easypages_sid`), not in a server-side session folder.
+No git clone required. **Login over HTTP:** [`.env.example`](.env.example) sets `SESSION_COOKIE_SECURE=false`, and Compose interpolates that file into the container (`${SESSION_COOKIE_SECURE:-false}`). If you terminate **HTTPS** in front of the container, set `SESSION_COOKIE_SECURE=true` in `.env`. Session data is stored in a **signed cookie** (`easypages_sid`), not in a server-side session folder.
 
-With a **reverse proxy**, keep the default **`TRUST_PROXY`** (one trusted hop for forwarded headers and rate limits). If the Node process is reachable **without** a trusted proxy in front, set **`TRUST_PROXY=false`** — see [runtime notes in CONTRIBUTING.md](CONTRIBUTING.md#runtime-notes-dist-sessions-scaling).
+Compose defaults **`TRUST_PROXY=false`** for a published HTTP port (clients can send `X-Forwarded-For`). With a **reverse proxy**, set **`TRUST_PROXY=1`** in `.env` (one trusted hop). See [runtime notes in CONTRIBUTING.md](CONTRIBUTING.md#runtime-notes-dist-sessions-scaling).
 
 **From a git clone:** use the root [`docker-compose.yml`](docker-compose.yml) and [`.env.example`](.env.example) instead of `curl`.
 
@@ -202,9 +202,9 @@ configuración: no hay usuario ni contraseña en el `.env`, y ninguna variable d
 crear, sustituir ni saltarse la cuenta. Hazlo enseguida: hasta que la cuenta exista, cualquiera
 que llegue a ese puerto puede crearla (ver [SECURITY.md](SECURITY.md)).
 
-No hace falta clonar el repositorio. **Acceso por HTTP:** [`.env.example`](.env.example) deja `SESSION_COOKIE_SECURE=false`. Si terminas **HTTPS** delante del contenedor, pon `SESSION_COOKIE_SECURE=true`. Los datos de sesión van en una **cookie firmada** (`easypages_sid`), no en una carpeta de sesión en el servidor.
+No hace falta clonar el repositorio. **Acceso por HTTP:** [`.env.example`](.env.example) deja `SESSION_COOKIE_SECURE=false`, y Compose interpola ese archivo en el contenedor (`${SESSION_COOKIE_SECURE:-false}`). Si terminas **HTTPS** delante del contenedor, pon `SESSION_COOKIE_SECURE=true` en `.env`. Los datos de sesión van en una **cookie firmada** (`easypages_sid`), no en una carpeta de sesión en el servidor.
 
-Con un **proxy inverso**, mantén el valor por defecto de **`TRUST_PROXY`** (un salto de confianza para cabeceras reenviadas y límites de peticiones). Si el proceso Node es alcanzable **sin** un proxy de confianza delante, define **`TRUST_PROXY=false`** — véanse las [notas de runtime en CONTRIBUTING.md](CONTRIBUTING.md#runtime-notes-dist-sessions-scaling).
+Compose deja **`TRUST_PROXY=false`** por defecto en un puerto HTTP publicado (el cliente puede enviar `X-Forwarded-For`). Con un **proxy inverso**, pon **`TRUST_PROXY=1`** en `.env` (un salto de confianza). Véanse las [notas de runtime en CONTRIBUTING.md](CONTRIBUTING.md#runtime-notes-dist-sessions-scaling).
 
 **Con el repo clonado:** usa el [`docker-compose.yml`](docker-compose.yml) y [`.env.example`](.env.example) de la raíz en lugar de `curl`.
 

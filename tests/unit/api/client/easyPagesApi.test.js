@@ -147,6 +147,19 @@ test('tier 3: changing credentials only redirects when the session is really gon
     EasyPagesApiError,
   );
   assert.equal(notified, 1);
+
+  notified = 0;
+  globalThis.fetch = () =>
+    Promise.resolve(jsonResponse({ error: 'Initial setup is pending.', code: 'setup_required' }, 409));
+  await assert.rejects(
+    () => easyPagesClient.changeCredentials({ csrfToken: 't', currentPassword: 'x' }),
+    (error) => {
+      assert.equal(error.code, 'setup_required');
+      assert.equal(error.status, 409);
+      return true;
+    },
+  );
+  assert.equal(notified, 1);
 });
 
 test('a 403 refreshes the CSRF token and retries exactly once', async () => {

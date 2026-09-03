@@ -98,19 +98,33 @@ const UploadTab = ({ project, csrfToken, onNotify, onUploadSuccess }) => {
             accept=".zip,application/zip"
             className="hidden"
             aria-label={t('upload_title')}
+            disabled={uploading}
             onChange={handleFileChange}
           />
           <button
             type="button"
-            onClick={() => inputRef.current?.click()}
-            onDrop={handleDrop}
+            disabled={uploading}
+            onClick={() => {
+              if (!uploading) {
+                inputRef.current?.click();
+              }
+            }}
+            onDrop={(event) => {
+              if (uploading) {
+                event.preventDefault();
+                return;
+              }
+              handleDrop(event);
+            }}
             onDragOver={handleDragOver}
             onDragEnter={(event) => {
               event.preventDefault();
-              setDragging(true);
+              if (!uploading) {
+                setDragging(true);
+              }
             }}
             onDragLeave={() => setDragging(false)}
-            className={`w-full border-2 border-dashed rounded-lg py-12 px-4 text-center text-sm text-gray-600 transition-colors ${
+            className={`w-full border-2 border-dashed rounded-lg py-12 px-4 text-center text-sm text-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
               dragging
                 ? 'border-orange-400 bg-orange-50/60'
                 : 'border-gray-300 hover:border-orange-400 hover:bg-orange-50/40'

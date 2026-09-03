@@ -4,9 +4,12 @@ import { useTranslation } from 'react-i18next';
 import AuthLayout from '../components/AuthLayout';
 
 /** Shown when the backend did not answer at all, as opposed to answering with an error. */
-const OfflineView = ({ onRetry, onToggleLanguage }) => {
+const OfflineView = ({ offlineReason, onRetry, onToggleLanguage }) => {
   const { t } = useTranslation();
   const [retrying, setRetrying] = useState(false);
+  const hintKey = offlineReason === 'storage_unwritable'
+    ? 'auth_storage_unwritable'
+    : 'auth_offline_hint';
 
   const handleRetry = async () => {
     setRetrying(true);
@@ -22,7 +25,7 @@ const OfflineView = ({ onRetry, onToggleLanguage }) => {
       <div className="space-y-4">
         <p className="flex gap-2 rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-600">
           <PlugZap size={16} className="mt-px shrink-0" />
-          <span>{t('auth_offline_hint')}</span>
+          <span>{t(hintKey)}</span>
         </p>
 
         <button

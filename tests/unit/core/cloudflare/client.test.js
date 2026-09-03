@@ -191,17 +191,33 @@ test('normalizeCloudflareError exposes timeouts and connection failures', async 
   assert.equal(unreachable.expose, true);
 });
 
-test('listAllPages walks until a short page', async () => {
+const pageFromListPath = (path) => {
+  const match = /(?:^|&|[?])page=(\d+)/.exec(path);
+  return match ? Number.parseInt(match[1], 10) : 1;
+};
+
+test('listAllPages walks until a short page when result_info.per_page is present', async () => {
   const { listAllPages } = await import('../../../../src/core/cloudflare/client.js');
   const calls = [];
   const cloudflare = {
     get: async (path) => {
       calls.push(path);
-      if (path.includes('page=1')) {
-        return { data: { result: [{ id: 'a' }, { id: 'b' }] } };
+      const page = pageFromListPath(path);
+      if (page === 1) {
+        return {
+          data: {
+            result: [{ id: 'a' }, { id: 'b' }],
+            result_info: { per_page: 2 },
+          },
+        };
       }
-      if (path.includes('page=2')) {
-        return { data: { result: [{ id: 'c' }] } };
+      if (page === 2) {
+        return {
+          data: {
+            result: [{ id: 'c' }],
+            result_info: { per_page: 2 },
+          },
+        };
       }
       return { data: { result: [] } };
     },
@@ -210,6 +226,60 @@ test('listAllPages walks until a short page', async () => {
   const all = await listAllPages(cloudflare, '/pages/projects', { perPage: 2 });
   assert.deepEqual(all.map((row) => row.id), ['a', 'b', 'c']);
   assert.equal(calls.length, 2);
+});
+
+test('listAllPages keeps walking when Cloudflare clamps per_page below the request', async () => {
+  const { listAllPages } = await import('../../../../src/core/cloudflare/client.js');
+  const calls = [];
+  const cloudflare = {
+    get: async (path) => {
+      calls.push(path);
+      const page = pageFromListPath(path);
+      if (page === 1) {
+        return {
+          data: {
+            result: Array.from({ length: 50 }, (_, i) => ({ id: `p${i}` })),
+            result_info: { per_page: 50, total_count: 70, page: 1 },
+          },
+        };
+      }
+      if (page === 2) {
+        return {
+          data: {
+            result: Array.from({ length: 20 }, (_, i) => ({ id: `p${50 + i}` })),
+            result_info: { per_page: 50, total_count: 70, page: 2 },
+          },
+        };
+      }
+      return { data: { result: [] } };
+    },
+  };
+
+  const all = await listAllPages(cloudflare, '/pages/projects', { perPage: 100 });
+  assert.equal(all.length, 70);
+  assert.equal(calls.length, 2);
+});
+
+test('listAllPages walks until an empty page when result_info is missing', async () => {
+  const { listAllPages } = await import('../../../../src/core/cloudflare/client.js');
+  const calls = [];
+  const cloudflare = {
+    get: async (path) => {
+      calls.push(path);
+      const page = pageFromListPath(path);
+      if (page === 1) {
+        return { data: { result: [{ id: 'a' }, { id: 'b' }] } };
+      }
+      if (page === 2) {
+        return { data: { result: [{ id: 'c' }] } };
+      }
+      return { data: { result: [] } };
+    },
+  };
+
+  const all = await listAllPages(cloudflare, '/pages/projects', { perPage: 2 });
+  assert.deepEqual(all.map((row) => row.id), ['a', 'b', 'c']);
+  assert.equal(calls.length, 3);
 });
 
 test('listAllPages treats a non-array result as empty', async () => {

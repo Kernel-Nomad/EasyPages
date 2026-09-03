@@ -61,7 +61,8 @@ const CreateProjectModal = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium"
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium disabled:opacity-50"
+                disabled={creating}
               >
                 {t('cancel')}
               </button>

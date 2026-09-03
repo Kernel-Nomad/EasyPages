@@ -26,6 +26,7 @@ export default function App() {
     authState,
     completeSetup,
     csrfToken,
+    offlineReason,
     retryConnection,
     signIn,
     signOut,
@@ -39,18 +40,19 @@ export default function App() {
 
   const {
     activeTab,
+    beginDeploymentsFetch,
     closeCreateModal,
     createError,
     creating,
     deployments,
     deploymentsHasMore,
+    deploymentsLoadError,
     handleBack,
     handleCreateProject,
     handleProjectClick,
     handleTriggerDeploy,
     handleUploadSuccess,
     isDeploying,
-    loadDeployments,
     loadMoreDeployments,
     loadProjects,
     loading,
@@ -155,7 +157,13 @@ export default function App() {
   }
 
   if (authState === 'offline') {
-    return <OfflineView onRetry={retryConnection} onToggleLanguage={toggleLanguage} />;
+    return (
+      <OfflineView
+        offlineReason={offlineReason}
+        onRetry={retryConnection}
+        onToggleLanguage={toggleLanguage}
+      />
+    );
   }
 
   if (authState === 'setup') {
@@ -206,6 +214,7 @@ export default function App() {
               loadingDeployments={loadingDeployments}
               deployments={deployments}
               deploymentsHasMore={deploymentsHasMore}
+              deploymentsLoadError={deploymentsLoadError}
               productionDeploymentId={productionDeploymentId}
               csrfToken={csrfToken}
               isDeploying={isDeploying}
@@ -213,7 +222,7 @@ export default function App() {
               onConfirm={requestConfirmation}
               onNotify={showNotification}
               onTriggerDeploy={handleTriggerDeploy}
-              onRefreshDeployments={loadDeployments}
+              onRefreshDeployments={beginDeploymentsFetch}
               onLoadMoreDeployments={loadMoreDeployments}
               onUploadSuccess={handleUploadSuccess}
             />

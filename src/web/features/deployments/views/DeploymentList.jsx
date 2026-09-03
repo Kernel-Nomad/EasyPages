@@ -66,7 +66,9 @@ const DeploymentItem = ({ deployment, isSelected, onToggle, isProduction }) => {
 
             <span className="flex items-center gap-1">
               <Clock size={10} aria-hidden="true" />
-              {new Date(deployment.created_on).toLocaleString(i18n.language)}
+              {deployment.created_on
+                ? new Date(deployment.created_on).toLocaleString(i18n.language)
+                : '----'}
             </span>
           </div>
         </div>
@@ -102,6 +104,7 @@ const DeploymentList = ({
   csrfToken,
   onConfirm,
   onNotify,
+  onDeletingChange,
   onRefresh,
 }) => {
   const { t } = useTranslation();
@@ -112,14 +115,19 @@ const DeploymentList = ({
   const cancelledRef = useRef(false);
 
   useEffect(() => {
+    onDeletingChange?.(isDeleting);
+    return () => {
+      onDeletingChange?.(false);
+    };
+  }, [isDeleting, onDeletingChange]);
+
+  // Cancel in-flight deletes only when leaving this project, not when switching tabs.
+  useEffect(() => {
     cancelledRef.current = false;
+    setSelectedIds(new Set());
     return () => {
       cancelledRef.current = true;
     };
-  }, []);
-
-  useEffect(() => {
-    setSelectedIds(new Set());
   }, [projectName]);
 
   useEffect(() => {
@@ -179,10 +187,11 @@ const DeploymentList = ({
       return;
     }
 
+    const ids = Array.from(selectedIds);
     setIsDeleting(true);
+    setProgress({ current: 0, total: ids.length });
 
     try {
-      const ids = Array.from(selectedIds);
       const chunkSize = 5;
       const results = { failed: 0, skipped: 0, success: 0 };
 
@@ -202,6 +211,10 @@ const DeploymentList = ({
         results.failed += chunkResult.failed;
         results.success += chunkResult.success;
         results.skipped += chunkResult.skipped || 0;
+        setProgress((currentProgress) => ({
+          ...currentProgress,
+          current: Math.min(currentProgress.current + chunk.length, currentProgress.total),
+        }));
       }
 
       notifyDeleteResult(results);
@@ -218,6 +231,7 @@ const DeploymentList = ({
     } finally {
       if (!cancelledRef.current) {
         setIsDeleting(false);
+        setProgress({ current: 0, total: 0 });
       }
     }
   };
@@ -316,20 +330,24 @@ const DeploymentList = ({
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm relative">
-      {isDeleting && progress.total > 0 && (
+      {isDeleting && (
         <div className="absolute inset-0 z-50 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center p-8 gap-4">
           <Loader2 size={40} className="animate-spin text-orange-600" />
           <div className="w-full max-w-md space-y-2">
             <div className="flex justify-between text-sm font-medium text-gray-600">
               <span>{t('deleting_msg')}</span>
-              <span>{Math.round((progress.current / progress.total) * 100)}%</span>
+              {progress.total > 0 ? (
+                <span>{Math.round((progress.current / progress.total) * 100)}%</span>
+              ) : null}
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
-              <div
-                className="h-full bg-orange-500 transition-all duration-300"
-                style={{ width: `${(progress.current / progress.total) * 100}%` }}
-              />
-            </div>
+            {progress.total > 0 ? (
+              <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                <div
+                  className="h-full bg-orange-500 transition-all duration-300"
+                  style={{ width: `${(progress.current / progress.total) * 100}%` }}
+                />
+              </div>
+            ) : null}
           </div>
         </div>
       )}

@@ -259,4 +259,68 @@ describe('App authentication state machine', () => {
     expect(await screen.findByRole('button', { name: /Create New Project/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Back/i })).not.toBeInTheDocument();
   });
+
+  it('draws the setup wizard when login answers setup_required', async () => {
+    let setupComplete = true;
+    mockBackend({
+      '/api/auth/status': () => jsonResponse(statusBody({
+        setup_complete: setupComplete,
+        authenticated: false,
+        username: null,
+      })),
+      '/api/auth/login': () => {
+        setupComplete = false;
+        return jsonResponse({ error: 'Initial setup is pending.', code: 'setup_required' }, 409);
+      },
+    });
+
+    render(<App />);
+    expect(await screen.findByRole('button', { name: 'Sign in' })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'admin' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'a-password' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    expect(await screen.findByRole('button', { name: 'Create account' })).toBeInTheDocument();
+  });
+
+  it('shows the storage error when /status cannot read credentials', async () => {
+    mockBackend({
+      '/api/auth/status': jsonResponse({
+        error: 'Could not read the credentials. Check the server logs.',
+        code: 'storage_unwritable',
+      }, 500),
+    });
+
+    render(<App />);
+    expect(await screen.findByText(/cannot save the credentials/i)).toBeInTheDocument();
+    expect(screen.queryByText(/container is running/i)).not.toBeInTheDocument();
+  });
+
+  it('does not pretend the history is empty when deployments fail to load', async () => {
+    mockBackend({
+      '/api/auth/status': jsonResponse(statusBody()),
+      '/api/projects/demo/deployments': jsonResponse({
+        error: 'Timed out connecting to Cloudflare',
+        code: 'cf_timeout',
+      }, 504),
+      '/api/projects': jsonResponse([{
+        id: 'p1',
+        name: 'demo',
+        subdomain: 'demo.pages.dev',
+        source: { type: 'upload' },
+        latest_deployment: { status: 'success' },
+      }]),
+    });
+
+    render(<App />);
+    const logSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      fireEvent.click(await screen.findByRole('button', { name: 'demo' }));
+      expect(await screen.findByText('Could not load deployments.')).toBeInTheDocument();
+    } finally {
+      logSpy.mockRestore();
+    }
+    expect(screen.queryByText('No deployments available.')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Refresh List/i })).toBeInTheDocument();
+  });
 });

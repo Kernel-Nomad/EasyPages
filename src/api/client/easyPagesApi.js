@@ -311,7 +311,9 @@ const sessionAwareRequest = async (requestFactory, { fallbackMessage } = {}) => 
 
     if (!response.ok) {
       const error = await buildApiError(response, fallbackMessage);
-      if (response.status === 401 && SESSION_LOST_CODES.has(error.code)) {
+      // setup_required is 409 on /login and /credentials, 401 on the auth wall. The code
+      // is the contract; the status is not.
+      if (SESSION_LOST_CODES.has(error.code)) {
         apiHooks.onUnauthorized?.(response);
       }
       throw error;

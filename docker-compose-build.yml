@@ -13,10 +13,11 @@ services:
       - "8002:8002"
     environment:
       EASYPAGES_DATA_DIR: /data
-      # Direct HTTP on the published port: Compose wins over .env. Behind TLS+proxy set
-      # both SESSION_COOKIE_SECURE=true and TRUST_PROXY to the hop count (default 1).
-      SESSION_COOKIE_SECURE: "false"
-      TRUST_PROXY: "false"
+      # Interpolated from the project .env (not env_file). Direct HTTP defaults keep
+      # Secure off and do not trust X-Forwarded-For. Behind TLS+proxy set both in .env:
+      # SESSION_COOKIE_SECURE=true and TRUST_PROXY=1.
+      SESSION_COOKIE_SECURE: "${SESSION_COOKIE_SECURE:-false}"
+      TRUST_PROXY: "${TRUST_PROXY:-false}"
     env_file:
       - .env
     volumes:

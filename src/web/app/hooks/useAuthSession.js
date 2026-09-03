@@ -21,11 +21,13 @@ export const useAuthSession = () => {
   const [authState, setAuthState] = useState('loading');
   const [username, setUsername] = useState(null);
   const [csrfToken, setCsrfToken] = useState('');
+  const [offlineReason, setOfflineReason] = useState(null);
   const bootstrapInFlightRef = useRef(null);
 
   const applyStatus = useCallback((status) => {
     // Always take the token from the newest response: StrictMode mounts effects twice in
     // development, so two bootstraps race and only the last Set-Cookie survives.
+    setOfflineReason(null);
     setCsrfToken(status?.csrf_token ?? '');
     if (!status?.setup_complete) {
       setUsername(null);
@@ -52,6 +54,12 @@ export const useAuthSession = () => {
       try {
         return applyStatus(await easyPagesClient.fetchAuthStatus());
       } catch (error) {
+        if (error?.code === 'storage_unwritable') {
+          setOfflineReason('storage_unwritable');
+          setAuthState('offline');
+          return 'offline';
+        }
+        setOfflineReason(null);
         if (isBackendUnreachableError(error)) {
           setAuthState('offline');
           return 'offline';
@@ -119,12 +127,21 @@ export const useAuthSession = () => {
   }, [csrfToken]);
 
   const signIn = useCallback(async ({ password, username: nextUsername }) => {
-    const result = await easyPagesClient.login({ csrfToken, password, username: nextUsername });
-    setCsrfToken(result?.csrf_token ?? '');
-    setUsername(result?.username ?? null);
-    setAuthState('ready');
-    return result;
-  }, [csrfToken]);
+    try {
+      const result = await easyPagesClient.login({ csrfToken, password, username: nextUsername });
+      setCsrfToken(result?.csrf_token ?? '');
+      setUsername(result?.username ?? null);
+      setAuthState('ready');
+      return result;
+    } catch (error) {
+      // /login answers 409 setup_required (not 401) so the form can tell it apart from
+      // invalid_credentials. Re-read status and draw the wizard.
+      if (error?.code === 'setup_required') {
+        await bootstrap();
+      }
+      throw error;
+    }
+  }, [bootstrap, csrfToken]);
 
   const signOut = useCallback(async () => {
     try {
@@ -149,6 +166,7 @@ export const useAuthSession = () => {
     authState,
     completeSetup,
     csrfToken,
+    offlineReason,
     retryConnection: bootstrap,
     signIn,
     signOut,

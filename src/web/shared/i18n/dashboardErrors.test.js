@@ -21,4 +21,14 @@ describe('dashboardErrorMessage', () => {
       'Se agotó el tiempo de espera al conectar con Cloudflare.',
     );
   });
+
+  it('interpolates retry seconds for a dashboard rate limit', () => {
+    const error = new EasyPagesApiError('Too many requests.', {
+      code: 'rate_limited',
+      retryAfter: 42,
+    });
+    expect(dashboardErrorMessage(error, 'create_error', i18n.t.bind(i18n))).toBe(
+      'Demasiadas peticiones. Inténtalo de nuevo en 42 segundos.',
+    );
+  });
 });

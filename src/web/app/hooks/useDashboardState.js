@@ -12,6 +12,7 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, sessio
   const [projects, setProjects] = useState([]);
   const [projectsLoadError, setProjectsLoadError] = useState(false);
   const [deployments, setDeployments] = useState([]);
+  const [deploymentsLoadError, setDeploymentsLoadError] = useState(false);
   const [productionDeploymentId, setProductionDeploymentId] = useState(null);
   const [deploymentsPage, setDeploymentsPage] = useState(1);
   const [deploymentsHasMore, setDeploymentsHasMore] = useState(false);
@@ -25,6 +26,7 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, sessio
   const deploymentsAbortControllerRef = useRef(null);
   const deploymentsRefreshTimeoutRef = useRef(null);
   const deploymentsGenerationRef = useRef(0);
+  const projectsGenerationRef = useRef(0);
 
   const clearScheduledDeploymentsRefresh = () => {
     if (deploymentsRefreshTimeoutRef.current) {
@@ -34,26 +36,39 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, sessio
   };
 
   const loadProjects = async () => {
+    const generation = projectsGenerationRef.current + 1;
+    projectsGenerationRef.current = generation;
     setLoading(true);
     setProjectsLoadError(false);
 
     try {
       const data = await easyPagesClient.fetchProjects();
+      if (generation !== projectsGenerationRef.current) {
+        return;
+      }
       setProjects(data);
     } catch (error) {
+      if (generation !== projectsGenerationRef.current) {
+        return;
+      }
       if (!isSecurityError(error)) {
         console.error(error);
         setProjectsLoadError(true);
         onNotify('error', dashboardErrorMessage(error, 'project_list_error', t));
       }
     } finally {
-      setLoading(false);
+      if (generation === projectsGenerationRef.current) {
+        setLoading(false);
+      }
     }
   };
 
   const loadDeployments = async (projectName, { append = false, page = 1, signal } = {}) => {
     const generation = deploymentsGenerationRef.current;
     setLoadingDeployments(true);
+    if (!append) {
+      setDeploymentsLoadError(false);
+    }
 
     try {
       const data = await easyPagesClient.fetchDeployments(projectName, { page, signal });
@@ -66,12 +81,16 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, sessio
       setProductionDeploymentId(data?.productionDeploymentId ?? null);
       setDeploymentsPage(data?.page || page);
       setDeploymentsHasMore(Boolean(data?.hasMore));
+      setDeploymentsLoadError(false);
     } catch (error) {
       if (error?.name === 'AbortError') {
         return;
       }
       if (generation !== deploymentsGenerationRef.current) {
         return;
+      }
+      if (!append) {
+        setDeploymentsLoadError(true);
       }
       if (!isSecurityError(error)) {
         console.error('Error loading deployments:', error);
@@ -108,6 +127,7 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, sessio
       const nextController = new AbortController();
       deploymentsAbortControllerRef.current = nextController;
       setDeployments([]);
+      setDeploymentsLoadError(false);
       setProductionDeploymentId(null);
       setDeploymentsPage(1);
       setDeploymentsHasMore(false);
@@ -135,6 +155,7 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, sessio
     }
     clearScheduledDeploymentsRefresh();
     deploymentsGenerationRef.current += 1;
+    projectsGenerationRef.current += 1;
     deploymentsAbortControllerRef.current?.abort();
     setView('list');
     setSelectedProject(null);
@@ -142,6 +163,7 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, sessio
     setProjects([]);
     setProjectsLoadError(false);
     setDeployments([]);
+    setDeploymentsLoadError(false);
     setProductionDeploymentId(null);
     setDeploymentsPage(1);
     setDeploymentsHasMore(false);
@@ -239,6 +261,7 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, sessio
     setSelectedProject(null);
     setView('list');
     setDeployments([]);
+    setDeploymentsLoadError(false);
     setProductionDeploymentId(null);
     setDeploymentsPage(1);
     setDeploymentsHasMore(false);
@@ -270,17 +293,18 @@ export const useDashboardState = ({ csrfToken, isSecurityError, onNotify, sessio
 
   return {
     activeTab,
+    beginDeploymentsFetch,
     createError,
     creating,
     deployments,
     deploymentsHasMore,
+    deploymentsLoadError,
     handleBack,
     handleCreateProject,
     handleProjectClick,
     handleTriggerDeploy,
     handleUploadSuccess,
     isDeploying,
-    loadDeployments,
     loadMoreDeployments,
     loadProjects,
     loading,

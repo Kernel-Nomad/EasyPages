@@ -80,11 +80,13 @@ so a cross-site POST from another origin does not carry it. The SPA uses
 
 ## Hardening checklist
 
-- Put EasyPages behind a reverse proxy with TLS and set `SESSION_COOKIE_SECURE=true`.
-  Direct HTTP installs (including the CI smoke test) must set `SESSION_COOKIE_SECURE=false`,
-  or browsers and curl will refuse to send the session cookie.
-- Exposed directly, with no proxy in front, set `TRUST_PROXY=false` so the rate limiter
-  keys on the real socket rather than a header the client controls.
+- Put EasyPages behind a reverse proxy with TLS and set `SESSION_COOKIE_SECURE=true` in
+  `.env`. Compose interpolates that file (`${SESSION_COOKIE_SECURE:-false}`): editing only
+  the YAML is not required. Direct HTTP installs (including the CI smoke test) must keep
+  `SESSION_COOKIE_SECURE=false`, or browsers and curl will refuse to send the session cookie.
+- Exposed directly, with no proxy in front, keep `TRUST_PROXY=false` (Compose's default)
+  so the rate limiter keys on the real socket rather than a header the client controls.
+  Behind a trusted reverse proxy set `TRUST_PROXY=1` in `.env`.
 - Scope the Cloudflare API token to *Account → Cloudflare Pages → Edit* and nothing else.
 - Keep the port off the public internet unless you have a reason to publish it.
 - Ensure the data directory is writable by uid 1000 (`chown -R 1000:1000 ./easypages-data`)

@@ -148,12 +148,15 @@ export const normalizeCloudflareError = (error, fallbackMessage) => {
 };
 
 /**
- * Walk Cloudflare list endpoints that use page/per_page until a page returns fewer than
- * perPage items (or an empty result). Defends against a missing/non-array `result`.
+ * Walk Cloudflare list endpoints that use page/per_page until the list is complete.
  *
- * @param {{ get: (path: string) => Promise<{ data?: { result?: unknown } }> }} cloudflare
+ * Do not treat "fewer items than we asked for" as the last page: the v4 API often clamps
+ * `per_page` (commonly to 50) and a short first page would silently drop the rest.
+ * Prefer `result_info`; without it, keep going until a page is empty.
+ *
+ * @param {{ get: (path: string) => Promise<{ data?: { result?: unknown, result_info?: { per_page?: number, total_count?: number, total_pages?: number } } }> }} cloudflare
  * @param {string} resourcePath Path under the account, without query string.
- * @param {{ perPage?: number }} [options]
+ * @param {{ perPage?: number, maxPages?: number }} [options]
  * @returns {Promise<unknown[]>}
  */
 export const listAllPages = async (cloudflare, resourcePath, { perPage = 100, maxPages = 100 } = {}) => {
@@ -167,15 +170,31 @@ export const listAllPages = async (cloudflare, resourcePath, { perPage = 100, ma
     );
     const result = response?.data?.result;
     const batch = Array.isArray(result) ? result : [];
+    const info = response?.data?.result_info;
+
+    if (batch.length === 0) {
+      break;
+    }
     all.push(...batch);
 
-    if (batch.length < perPage) {
+    const reportedPerPage = typeof info?.per_page === 'number' && info.per_page > 0
+      ? info.per_page
+      : null;
+    const totalCount = typeof info?.total_count === 'number' ? info.total_count : null;
+    const totalPages = typeof info?.total_pages === 'number' ? info.total_pages : null;
+
+    const reachedEnd = totalPages != null
+      ? page >= totalPages
+      : totalCount != null
+        ? all.length >= totalCount
+        : reportedPerPage != null
+          ? batch.length < reportedPerPage
+          : false;
+
+    if (reachedEnd || page >= maxPages) {
       break;
     }
     page += 1;
-    if (page > maxPages) {
-      break;
-    }
   }
 
   return all;

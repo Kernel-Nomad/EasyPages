@@ -178,34 +178,48 @@ export const createClient = (baseUrl, existingJar) => {
   return { completeSetup, jar, login, request, status };
 };
 
+const pageFromPath = (resourcePath) => {
+  const query = resourcePath.split('?')[1] || '';
+  const match = /(?:^|&)page=(\d+)/.exec(query);
+  return match ? Number.parseInt(match[1], 10) : 1;
+};
+
 export const createMockCloudflare = (overrides = {}) => ({
   get: async (resourcePath) => {
     const pathOnly = resourcePath.split('?')[0];
+    const page = pageFromPath(resourcePath);
     if (pathOnly === '/pages/projects') {
+      const item = {
+        id: 'proj-1',
+        name: 'demo',
+        subdomain: 'demo.pages.dev',
+        source: { type: 'github', config: { owner: 'acme', repo_name: 'demo' } },
+        latest_deployment: {
+          id: 'dep-1',
+          latest_stage: { status: 'success' },
+          url: 'https://demo.pages.dev',
+        },
+        build_config: {},
+        deployment_configs: {
+          production: {
+            env_vars: { SECRET: { type: 'secret_text', value: 'should-not-leak' } },
+          },
+        },
+      };
       return {
         data: {
-          result: [{
-            id: 'proj-1',
-            name: 'demo',
-            subdomain: 'demo.pages.dev',
-            source: { type: 'github', config: { owner: 'acme', repo_name: 'demo' } },
-            latest_deployment: {
-              id: 'dep-1',
-              latest_stage: { status: 'success' },
-              url: 'https://demo.pages.dev',
-            },
-            build_config: {},
-            deployment_configs: {
-              production: {
-                env_vars: { SECRET: { type: 'secret_text', value: 'should-not-leak' } },
-              },
-            },
-          }],
+          result: page > 1 ? [] : [item],
+          result_info: { page, per_page: 100, total_count: 1, total_pages: 1 },
         },
       };
     }
     if (pathOnly === '/pages/projects/demo/domains') {
-      return { data: { result: [{ id: 'dom-existing', name: 'existing.example.com' }] } };
+      return {
+        data: {
+          result: page > 1 ? [] : [{ id: 'dom-existing', name: 'existing.example.com' }],
+          result_info: { page, per_page: 100, total_count: 1, total_pages: 1 },
+        },
+      };
     }
     if (pathOnly === '/pages/projects/demo') {
       return {
